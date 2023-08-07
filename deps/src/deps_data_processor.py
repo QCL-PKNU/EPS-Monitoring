@@ -94,20 +94,28 @@ class DepsDataProcessor:
     # @param sig_str transferred sensor signal - "SPD:[VALUE],ANG:[VALUE],TRQ:[VALUE]"
     # @return a list of the enqueued sensor data (spd, ang, trq)
     #
-    def enqueue_sensor_signal(self, sig_str: str):
+    def enqueue_sensor_signal(self, sig_str: str):        
         data_buf = []
-
+        
         try:
+            sig_items = sig_str.split(',')
+
+            if len(sig_items) != 3:
+                # ignore invalid data string
+                return None
+
             # split the input string into
-            for sig_item in sig_str.split(','):
-                data_buf.append(float(sig_item[sig_item.find(':') + 1:]))
+            for sig_item in sig_items:
+                sidx = sig_item.find(':')
+                if sidx == -1:
+                    # ignore invalid data string
+                    return None
+
+                data_buf.append(float(sig_item[sidx + 1:].strip()))
+
         except ValueError as e:
             # ignore invalid data string
-            # print("enqueue_sensor_signal error - " + str(e))
-            return None
-
-        if len(data_buf) != 3:
-            # ignore invalid data string
+            print('enqueue_sensor_signal error - {}\n'.format(str(e)))
             return None
 
         # data validity check
@@ -116,7 +124,7 @@ class DepsDataProcessor:
         trq = data_buf[2]
         
         if not is_valid_sensor_data(spd, ang, trq):
-            print('Invalidate - SPD:{:5.3f},ANG: {:5.3f},TRQ:{:5.3f}'.format(spd, ang, trq))
+            print('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}'.format(spd, ang, trq))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
@@ -129,9 +137,17 @@ class DepsDataProcessor:
     # This function is used to dequeue the data buffers as many as the given count.
     #
     # @param self this object
-    # @param count the number of items to be dequeued from the data buffers
+    # @param count the number of items to be dequeued from the data buffers,
+    #              clear the buffers if the given count is -1.
     #
-    def dequeue_sensor_signal(self, count: int):
+    def dequeue_sensor_signal(self, count: int = -1):
+
+        # clear all the signal buffers
+        if count == -1:
+            self.spd_data_buf.clear()
+            self.ang_data_buf.clear()
+            self.trq_data_buf.clear()
+
         if len(self.spd_data_buf) > count:
             del self.spd_data_buf[0:count]
 

@@ -6,7 +6,7 @@
 # Authors:
 #    Youngsun Han (youngsun@pknu.ac.kr)
 #
-# High Performance Computing Laboratory (hpcl.pknu.ac.kr)
+# Quantum Computing Laboratory (quantum.pknu.ac.kr)
 #############################################################
 
 import sys
@@ -48,17 +48,17 @@ class DepsCommConn(QThread):
     #
     def open(self, baud: int):
 
-        # gpio initialization
+        # # gpio initialization
         GPIO.setmode(GPIO.BOARD)
-        
+
         # mode pins: 11, 12, 13
         self.modePinNums = [11, 12, 13]
         GPIO.setup(self.modePinNums, GPIO.OUT, initial=GPIO.LOW)
-        
+
         # speed pins: 15, 16
         self.speedPinNums = [15, 16]
         GPIO.setup(self.speedPinNums, GPIO.OUT, initial=GPIO.LOW)
-        
+
         # uart initialization (TX: 8, RX: 10)
         try:
             self.__uart = serial.Serial('/dev/ttyS0', baudrate=baud, timeout=1)
@@ -68,7 +68,7 @@ class DepsCommConn(QThread):
         except serial.SerialException as e:
             print("UART OPEN ERROR: " + str(e))
             return DepsError.ERROR_UART_OPEN
-        
+
         # start a thread for receiving uart data
         QThread.start(self)
 
@@ -82,86 +82,14 @@ class DepsCommConn(QThread):
     def close(self):
         # gpio finalization
         GPIO.cleanup()
-        
-        # uart finialization
+
+        # uart finalization
         if self.__uart is not None:
             self.__uart.close()
-        
+
         # stop the uart thread
         self.quit()
 
-    ## 
-    # This is a function to configure the test mode of the eps sensor.
-    #
-    # @param self this object
-    # @param mode test mode (0, 1, 2, 3, 4, 5)
-    # @return false if the input mode is wrong, otherwise true
-    #
-    def set_test_mode(self, mode):
-        pinout = []
-        
-        if mode == 0:
-            pinout = [0, 0, 0]
-        elif mode == 1:
-            pinout = [0, 0, 1]
-        elif mode == 2:
-            pinout = [0, 1, 0]
-        elif mode == 3:
-            pinout = [0, 1, 1]
-        elif mode == 4:
-            pinout = [1, 0, 0]
-        elif mode == 5:
-            pinout = [1, 0, 1]
-        else:
-            print("invalid mode: ", mode)
-            return False
-        
-        #print("mode: ", pinout)
-        
-        pinnum = self.modePinNums;
-        
-        for i in range(0, len(pinout)):
-            if pinout[i] == 1:
-                GPIO.output(pinnum[i], GPIO.HIGH);
-            else:
-                GPIO.output(pinnum[i], GPIO.LOW);
-
-        return True
-
-    ## 
-    # This is a function to configure the vehicle speed of the eps sensor.
-    #
-    # @param self this object
-    # @param speed vehicle speed (0, 1, 2, 3)
-    # @return false if the input speed is wrong, otherwise true
-    #
-    def set_vehicle_speed(self, speed):
-        pinout = []
-        
-        if speed == 0:
-            pinout = [0, 0]
-        elif speed == 1:
-            pinout = [0, 1]
-        elif speed == 2:
-            pinout = [1, 0]
-        elif speed == 3:
-            pinout = [1, 1]
-        else:
-            print("invalid speed: ", speed)
-            return False
-        
-        #print("speed: ", pinout)
-        
-        pinnum = self.speedPinNums;
-        
-        for i in range(0, len(pinout)):
-            if pinout[i] == 1:
-                GPIO.output(pinnum[i], GPIO.HIGH);
-            else:
-                GPIO.output(pinnum[i], GPIO.LOW);
-
-        return True
-        
     ###################################################################
     # EPS sensor data 
     ###################################################################
@@ -186,13 +114,13 @@ class DepsCommConn(QThread):
                 continue
 
             # just for debugging
-            #print(">> Read Byte: " + str(read_bytes[0]) + "\n")
+            # print(">> Read Byte: " + str(read_bytes[0]) + "\n")
 
             if self.__eps_recv_flag and len(read_bytes) > 0:
                 self.sig_eps_recv_bytes.emit(bytearray(read_bytes))
-            else:
-                # wait for 0.001 sec
-                self.msleep(1)
+
+            # wait for 0.001 sec
+            self.msleep(1)
         return
 
     ## 

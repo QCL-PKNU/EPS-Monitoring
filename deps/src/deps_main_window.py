@@ -19,6 +19,7 @@ from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal
 
 from deps_error import DepsError
 from deps_comm_conn import DepsCommConn
+from deps_comm_file import DepsCommFile
 from deps_config_parser import read_config_file
 from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v2, calculate_linear_regression
 
@@ -113,6 +114,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 self.__config.write(configfile)
 
         #####################################################################
+        # refresh rate for signal buffers
+        self.refresh_rate: int = int(self.__config_default['refreshrate'])
+
         # internal states for controlling the worker thread
         self.eval_state: bool = True
         self.disp_state: bool = True
@@ -286,7 +290,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.lw_log_pane.scrollToBottom()
 
             # just for debugging
-            print(msg + '\n')
+            print(_msg + '\n')
 
         # create new thread to execute the given target function
         threading.Thread(target=__print_log_thread, args=(msg,)).start()
@@ -328,6 +332,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.__parent = parent
             self.__stopped = event
 
+            # a buffer of lps points
+            self.__lps_buffer = []
+            for i in range(3):
+                self.__lps_buffer.append([])
+
             # signal-slot connection
             self.sig_update_graphs.connect(self.slot_update_graphs)
 
@@ -352,8 +361,13 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             rawdat = proc.refined_sensor_signal()
 
             # speed, angle, torque
+            self.__parent.pw_rawdat_spd.clear()
             self.__parent.pw_rawdat_spd.plot(rawdat[0], pen='r')
+
+            self.__parent.pw_rawdat_ang.clear()
             self.__parent.pw_rawdat_ang.plot(rawdat[1], pen='g')
+
+            self.__parent.pw_rawdat_trq.clear()
             self.__parent.pw_rawdat_trq.plot(rawdat[2], pen='b')
 
         ##
@@ -390,8 +404,12 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             try:
                 # speed levels (0~10, 10~30, 30~60 km/h)
                 for i in range(len(plot_widgets)):
+                    # temporary lps list
+                    points: list = self.__lps_buffer[i].copy()
+                    points.extend(lps_list[i])
+
                     # a list of linearity points
-                    x, y = zip(*lps_list[i])
+                    x, y = zip(*points)
 
                     # linear regression (slope, intercept)
                     b1, b0 = calculate_linear_regression(x, y)
@@ -409,7 +427,16 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                     plot_labels[i].setText('Linearity: {:5.3f}'.format(b1))
 
             except ValueError as e:
-                print('__update_linearity_graph error: ' + str(e))
+                print('__update_linearity_graph error: {}'.format(str(e)))
+
+            # refresh sensor data buffer
+            if num_sig >= self.__parent.refresh_rate:
+                # store all the linearity points into the buffer
+                for i in range(len(lps_list)):
+                    self.__lps_buffer[i].extend(lps_list[i])
+
+                # remove all the sensor data
+                proc.dequeue_sensor_signal()
 
         ##
         # This is a run method of this worker thread.
