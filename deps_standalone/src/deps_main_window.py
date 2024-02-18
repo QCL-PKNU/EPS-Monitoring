@@ -28,7 +28,8 @@ from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v
 #######################################################################
 
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../res/deps_main_window.ui")
+MW_Ui, MW_Base = uic.loadUiType(uifile="/Users/huotnich/Desktop/EPS-Monitoring/deps_standalone/res/deps_new.ui")
+#MW_Ui, MW_Base = uic.loadUiType('/Users/huotnich/Desktop/EPS-Monitoring/deps_standalone/src/deps_main_window_test.ui')
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
@@ -69,62 +70,62 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         #####################################################################
         # message
-        msg: str = self.__config_default['message']
+        # msg: str = self.__config_default['message']
 
-        if msg == 'distance':
-            self.lb_msg_title.setText('Distance:')
-            self.lb_msg_content.setText('0 km')
-        elif msg == 'time':
-            self.lb_msg_title.setText('Time:')
-            self.lb_msg_content.setText(datetime.now().strftime("%H:%M:%S"))
+        # if msg == 'distance':
+        #     self.lb_msg_title.setText('Distance:')
+        #     self.lb_msg_content.setText('0 km')
+        # elif msg == 'time':
+            # self.lb_msg_title.setText('Time:')
+            # self.lb_msg_content.setText(datetime.now().strftime("%H:%M:%S"))
 
         #####################################################################
         # vehicle loading
-        loading: int = int(self.__config_default['loading'])
+        # loading: int = int(self.__config_default['loading'])
 
-        self.cb_loading_none.setChecked(False)
-        self.cb_loading_heavy.setChecked(False)
+        # self.cb_loading_none.setChecked(False)
+        # self.cb_loading_heavy.setChecked(False)
 
-        if loading == 0:
-            self.cb_loading_none.setChecked(True)
-        elif loading > 150:
-            self.cb_loading_heavy.setChecked(True)
+        # if loading == 0:
+        #     self.cb_loading_none.setChecked(True)
+        # elif loading > 150:
+        #     self.cb_loading_heavy.setChecked(True)
 
         #####################################################################
         # threshold value
-        thv = int(self.__config_default['threshold'])
+        # thv = int(self.__config_default['threshold'])
 
-        # eps data processor
-        self.processor = DepsDataProcessor(thv)
+        # # eps data processor
+        # self.processor = DepsDataProcessor(thv)
 
         #####################################################################
         # restore the saved sensor data
-        fname: str = self.__config_default['saved']
-        if fname != 'None':
-            self.__load_rawdat_file(fname)
+        # fname: str = self.__config_default['saved']
+        # if fname != 'None':
+        #     self.__load_rawdat_file(fname)
       
-        # open a new save file
-        self.save_fp = open(new_save_path(), 'w')
-        self.__config_default['saved'] = self.save_fp.name
+        # # open a new save file
+        # self.save_fp = open(new_save_path(), 'w')
+        # self.__config_default['saved'] = self.save_fp.name
 
-        # update the config file ('config.ini')
-        if fname == 'None':
-            config_file_name = DepsMainWindow.CONFIG_FILE_NAME
-            with open(config_file_name, 'w') as configfile:
-                self.__config.write(configfile)
+        # # update the config file ('config.ini')
+        # if fname == 'None':
+        #     config_file_name = DepsMainWindow.CONFIG_FILE_NAME
+        #     with open(config_file_name, 'w') as configfile:
+        #         self.__config.write(configfile)
 
         #####################################################################
         # refresh rate for signal buffers
-        self.refresh_rate: int = int(self.__config_default['refreshrate'])
+        # self.refresh_rate: int = int(self.__config_default['refreshrate'])
 
-        # internal states for controlling the worker thread
-        self.eval_state: bool = True
-        self.disp_state: bool = True
+        # # internal states for controlling the worker thread
+        # self.eval_state: bool = True
+        # self.disp_state: bool = True
 
-        # start the worker thread of this main window
-        self.__worker_event = threading.Event()
-        self.__worker_thread = self.WorkerThread(self, self.__worker_event)
-        self.__worker_thread.start()
+        # # start the worker thread of this main window
+        # self.__worker_event = threading.Event()
+        # self.__worker_thread = self.WorkerThread(self, self.__worker_event)
+        # self.__worker_thread.start()
 
         #####################################################################
         # initialize the uart communication
@@ -143,10 +144,10 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.__conn = DepsCommFile()
 
         # filename
-        err = self.__conn.open('../dat/test_11.txt')
-        if err != DepsError.SUCCESS:
-            self.print_log("EPS connection is not opened: " + err.name)
-            return
+        # err = self.__conn.open('../dat/test_11.txt')
+        # if err != DepsError.SUCCESS:
+        #     self.print_log("EPS connection is not opened: " + err.name)
+        #     return
 
         # signal for receiving esp data
         self.__conn.sig_eps_recv_bytes.connect(
