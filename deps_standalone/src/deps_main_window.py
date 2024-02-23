@@ -16,6 +16,7 @@ from datetime import datetime
 
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal
+from PyQt5.QtGui import QPixmap, QImage
 
 from deps_error import DepsError
 from deps_comm_conn import DepsCommConn
@@ -23,17 +24,22 @@ from deps_comm_file import DepsCommFile
 from deps_config_parser import read_config_file
 from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v2, calculate_linear_regression
 
+from flirpy.camera.lepton import Lepton
+import cv2
+
 #######################################################################
 # DepsMainWindow class
 #######################################################################
 
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType(uifile="/Users/huotnich/Desktop/EPS-Monitoring/deps_standalone/res/deps_new.ui")
-#MW_Ui, MW_Base = uic.loadUiType('/Users/huotnich/Desktop/EPS-Monitoring/deps_standalone/src/deps_main_window_test.ui')
+MW_Ui, MW_Base = uic.loadUiType("/Users/nich/Desktop/EPS-Monitoring/deps_standalone/res/deps_new.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
-    CONFIG_FILE_NAME: str = 'config.ini'
-    PREFIX_SAVE_FILE: str = '../dat/save_'
+    # CONFIG_FILE_NAME: str = 'config.ini'
+    # PREFIX_SAVE_FILE: str = '../dat/save_'
+    # PSTFIX_SAVE_FILE: str = '.txt'
+    CONFIG_FILE_NAME: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini'
+    PREFIX_SAVE_FILE: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
 
     ##
@@ -51,7 +57,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         plot_widgets = [
             self.pw_rawdat_spd,
             self.pw_rawdat_ang,
-            self.pw_rawdat_trq
+            self.pw_rawdat_trq,
+            self.pw_rawdat_crnt
         ]
 
         for pw in plot_widgets:
@@ -62,70 +69,72 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.pb_evaluate.clicked.connect(self.slot_evaluate_clicked)
         self.pb_rawdat_save.clicked.connect(self.slot_rawdat_save_clicked)
         self.pb_rawdat_disp.clicked.connect(self.slot_rawdat_disp_clicked)
+       
 
         #####################################################################
         # read config file
-        self.__config = read_config_file('config.ini')
+        self.__config = read_config_file('/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini')
+       
         self.__config_default = self.__config['DEFAULT']
 
         #####################################################################
         # message
-        # msg: str = self.__config_default['message']
+        msg: str = self.__config_default['message']
 
-        # if msg == 'distance':
-        #     self.lb_msg_title.setText('Distance:')
-        #     self.lb_msg_content.setText('0 km')
-        # elif msg == 'time':
-            # self.lb_msg_title.setText('Time:')
-            # self.lb_msg_content.setText(datetime.now().strftime("%H:%M:%S"))
+        if msg == 'distance':
+            self.lb_msg_title.setText('Distance:')
+            self.lb_msg_content.setText('0 km')
+        elif msg == 'time':
+            self.lb_msg_title.setText('Time:')
+            self.lb_msg_content.setText(datetime.now().strftime("%H:%M:%S"))
 
         #####################################################################
         # vehicle loading
-        # loading: int = int(self.__config_default['loading'])
+        loading: int = int(self.__config_default['loading'])
 
-        # self.cb_loading_none.setChecked(False)
-        # self.cb_loading_heavy.setChecked(False)
+        self.cb_loading_none.setChecked(False)
+        self.cb_loading_heavy.setChecked(False)
 
-        # if loading == 0:
-        #     self.cb_loading_none.setChecked(True)
-        # elif loading > 150:
-        #     self.cb_loading_heavy.setChecked(True)
+        if loading == 0:
+            self.cb_loading_none.setChecked(True)
+        elif loading > 150:
+            self.cb_loading_heavy.setChecked(True)
 
         #####################################################################
         # threshold value
-        # thv = int(self.__config_default['threshold'])
+        thv = int(self.__config_default['threshold'])
 
-        # # eps data processor
-        # self.processor = DepsDataProcessor(thv)
+        # eps data processor
+        self.processor = DepsDataProcessor(thv)
 
         #####################################################################
         # restore the saved sensor data
-        # fname: str = self.__config_default['saved']
-        # if fname != 'None':
-        #     self.__load_rawdat_file(fname)
+        fname: str = self.__config_default['saved']
+        if fname != 'None':
+            self.__load_rawdat_file(fname)
       
-        # # open a new save file
-        # self.save_fp = open(new_save_path(), 'w')
-        # self.__config_default['saved'] = self.save_fp.name
+        # open a new save file
+        self.save_fp = open(new_save_path(), 'w')
+        self.__config_default['saved'] = self.save_fp.name
 
-        # # update the config file ('config.ini')
-        # if fname == 'None':
-        #     config_file_name = DepsMainWindow.CONFIG_FILE_NAME
-        #     with open(config_file_name, 'w') as configfile:
-        #         self.__config.write(configfile)
+        # update the config file ('config.ini')
+        if fname == 'None':
+            config_file_name = DepsMainWindow.CONFIG_FILE_NAME
+            with open(config_file_name, 'w') as configfile:
+                self.__config.write(configfile)
 
         #####################################################################
         # refresh rate for signal buffers
-        # self.refresh_rate: int = int(self.__config_default['refreshrate'])
+        self.refresh_rate: int = int(self.__config_default['refreshrate'])
 
-        # # internal states for controlling the worker thread
-        # self.eval_state: bool = True
-        # self.disp_state: bool = True
+        # internal states for controlling the worker thread
+        self.eval_state: bool = True
+        self.disp_state: bool = True
 
-        # # start the worker thread of this main window
-        # self.__worker_event = threading.Event()
-        # self.__worker_thread = self.WorkerThread(self, self.__worker_event)
-        # self.__worker_thread.start()
+        # start the worker thread of this main window
+        self.__worker_event = threading.Event()
+        self.__worker_thread = self.WorkerThread(self, self.__worker_event)
+        self.__worker_thread.start()
 
         #####################################################################
         # initialize the uart communication
@@ -145,9 +154,10 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        # if err != DepsError.SUCCESS:
-        #     self.print_log("EPS connection is not opened: " + err.name)
-        #     return
+        err = self.__conn.open('/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/test_11.txt')
+        if err != DepsError.SUCCESS:
+            self.print_log("EPS connection is not opened: " + err.name)
+            return
 
         # signal for receiving esp data
         self.__conn.sig_eps_recv_bytes.connect(
@@ -211,6 +221,23 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     ###################################################################
     # Slot functions
     ###################################################################
+    
+      ##
+    # This is a slot function to handle the signal
+    # when the save jpg is clicked.
+    #
+    # @param self this object
+    #
+    @pyqtSlot()
+    def slot_savejpg_clicked(self):
+        if self.eval_state:
+            self.eval_state = False
+            self.__conn.stop_eps_recv_thread()
+            self.pb_evaluate.setText('Continue')
+        else:
+            self.eval_state = True
+            self.__conn.start_eps_recv_thread()
+            self.pb_evaluate.setText('Pause')
 
     ##
     # This is a slot function to handle the signal
@@ -281,8 +308,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
+            # crnt = datbuf[3]
         
             self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
+            ##Current Measurement
+            # self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,PWR:{:5.3f}\n'.format(spd, ang, trq,crnt))
 
     ##
     # This is an event handler function for handling the window close event.
@@ -340,11 +370,13 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     class WorkerThread(QThread):
         # UI update signale
         sig_update_graphs = pyqtSignal()
+        image_captured = pyqtSignal(np.ndarray)
 
         def __init__(self, parent, event):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
+            self.thermal_camera(self)
 
             # a buffer of lps points
             self.__lps_buffer = []
@@ -360,6 +392,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def slot_update_graphs(self):
             if self.__parent.disp_state:
                 self.__update_rawdat_graph(self.__parent.processor)
+                # self.thermal_camera(self.__parent)
 
             if self.__parent.eval_state:
                 self.__update_linearity_graph(self.__parent.processor)
@@ -464,7 +497,46 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
+            # with Lepton() as camera:
+            #     while True:
+            #         image = camera.grab()
+            #         if image is not None:
+            #             self.image_captured.emit(image)
+            
+            # Use OpenCV to capture video from the first webcam
+            cap = cv2.VideoCapture(0)
+            while True:
+                ret, frame = cap.read()
+                if ret:
+                    # Convert the color space from BGR (OpenCV default) to RGB
+                    rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    self.image_captured.emit(rgb_image)
 
+                    # Release the video capture object when done
+            cap.release()
+            
+
+        ##
+        # This is a function of thermal imaging feature
+        #
+        # @param self this work thread object
+        #
+        def thermal_camera(self, image):
+            # Convert to a format suitable for QLabel
+            # Assuming 'image' is the numpy array captured from the camera
+            print(image)
+            height, width, channel = image.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+
+            # # Resize image for QLabel
+            q_image = q_image.scaled(self.__parent.lb_screen_thermal.width(), self.__parent.lb_screen_thermal.height(), Qt.KeepAspectRatio)
+            print('work')
+
+
+
+
+            
 ###################################################################
 # Utility functions
 ###################################################################
