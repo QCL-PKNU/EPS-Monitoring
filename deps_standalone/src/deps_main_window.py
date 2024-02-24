@@ -13,10 +13,11 @@ import os.path
 import threading
 import numpy as np
 from datetime import datetime
-
+import PyQt5
 from PyQt5 import uic
-from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal,Qt
 from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import QTimer
 
 from deps_error import DepsError
 from deps_comm_conn import DepsCommConn
@@ -26,21 +27,49 @@ from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v
 
 from flirpy.camera.lepton import Lepton
 import cv2
+import os
+from pathlib import Path
 
 #######################################################################
 # DepsMainWindow class
 #######################################################################
-
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("/Users/nich/Desktop/EPS-Monitoring/deps_standalone/res/deps_new.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_new.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
-    # CONFIG_FILE_NAME: str = 'config.ini'
-    # PREFIX_SAVE_FILE: str = '../dat/save_'
-    # PSTFIX_SAVE_FILE: str = '.txt'
-    CONFIG_FILE_NAME: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini'
-    PREFIX_SAVE_FILE: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/save_'
+    CONFIG_FILE_NAME: str = 'config.ini'
+    PREFIX_SAVE_FILE: str = '../deps_standalone/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
+
+    # CONFIG_FILE_NAME: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini'
+    # PREFIX_SAVE_FILE: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/save_'
+    # PSTFIX_SAVE_FILE: str = '.txt'
+
+
+    def __update_frame(self):
+            # ret, frame = self.__parent.cap.read()
+            ret, frame = self.__parent.cap.read()
+    
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Get the dimensions of the frame
+            height, width, channels = rgb_frame.shape
+            bytes_per_line = channels * width
+
+            # Convert the RGB frame to QImage
+            q_image = QImage(rgb_frame.data, width, height, bytes_per_line)
+         
+            # Convert QImage to QPixmap
+            pixmap = QPixmap.fromImage(q_image)
+            label_width =   self.__parent.lb_screen_thermal.width()
+            label_height = self.__parent.lb_screen_thermal.height()
+
+                # Resize the pixmap to fit the label
+            scaled_pixmap = pixmap.scaled(label_width,label_height)
+            
+            # Set the pixmap on the label
+            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
+
 
     ##
     # Constructor of DepsMainWindow class
@@ -51,6 +80,15 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         super().__init__()
         self.setupUi(self)
+        # Create a VideoCapture object
+        self.cap = cv2.VideoCapture(0)
+
+        # self.__update_frame()
+        
+        
+    
+        
+        
 
         #####################################################################
         # plot widget initialization
@@ -73,9 +111,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         #####################################################################
         # read config file
-        self.__config = read_config_file('/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini')
+        self.__config = read_config_file('../deps_standalone/src/config.ini')
        
         self.__config_default = self.__config['DEFAULT']
+        self.update_time: int = int(self.__config_default['thermaltime'])
+        print('update_time',self.update_time)
 
         #####################################################################
         # message
@@ -154,7 +194,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open('/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/test_11.txt')
+        err = self.__conn.open('../deps_standalone/dat/test_11.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -166,6 +206,17 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # start to receive the eps data
         self.__conn.start_eps_recv_thread()
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     ##
     # Destructor of DepsMainWindow class
     #
@@ -358,6 +409,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # close the file
         fd.close()
 
+
+
+
+
+
     #############################################################
     # WorkerThread class
     #############################################################
@@ -372,11 +428,17 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         sig_update_graphs = pyqtSignal()
         image_captured = pyqtSignal(np.ndarray)
 
+
         def __init__(self, parent, event):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
-            self.thermal_camera(self)
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.__update_frame)
+            update_interval = self.__parent.update_time
+            self.timer.start(update_interval)
+            # self.__update_frame()
+           
 
             # a buffer of lps points
             self.__lps_buffer = []
@@ -497,42 +559,43 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
-            # with Lepton() as camera:
-            #     while True:
-            #         image = camera.grab()
-            #         if image is not None:
-            #             self.image_captured.emit(image)
-            
-            # Use OpenCV to capture video from the first webcam
-            cap = cv2.VideoCapture(0)
-            while True:
-                ret, frame = cap.read()
+
+
+
+
+
+        def __update_frame(self):
+                # Capture a frame from the camera
+                ret, frame = self.__parent.cap.read()
+        
                 if ret:
-                    # Convert the color space from BGR (OpenCV default) to RGB
-                    rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    self.image_captured.emit(rgb_image)
+                    # Process the frame and update the QLabel
+                    self.process_and_update_label(frame)
+                else:
+                    print("Failed to capture frame from camera.")
 
-                    # Release the video capture object when done
-            cap.release()
+        def process_and_update_label(self, frame):
+            # Convert the image from BGR to RGB
+            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Convert to QImage and then to QPixmap
+            height, width, channels = rgb_image.shape
+            bytes_per_line = channels * width
+            q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(q_image)
+
+            label_width = self.__parent.lb_screen_thermal.width()
+            label_height = self.__parent.lb_screen_thermal.height()
+
+            # Resize the pixmap to fit the label
+            scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
+
+            # Set the pixmap on the label
+            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
+
+
+
             
-
-        ##
-        # This is a function of thermal imaging feature
-        #
-        # @param self this work thread object
-        #
-        def thermal_camera(self, image):
-            # Convert to a format suitable for QLabel
-            # Assuming 'image' is the numpy array captured from the camera
-            print(image)
-            height, width, channel = image.shape
-            bytes_per_line = 3 * width
-            q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
-
-            # # Resize image for QLabel
-            q_image = q_image.scaled(self.__parent.lb_screen_thermal.width(), self.__parent.lb_screen_thermal.height(), Qt.KeepAspectRatio)
-            print('work')
-
 
 
 
