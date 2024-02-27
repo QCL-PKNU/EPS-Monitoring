@@ -42,7 +42,7 @@ class DepsCommFile(QThread):
         try:
             self.__file = open(filename, 'r')
         except FileNotFoundError as e:
-            self.print_log('No file: ' + filename + str(e))
+            print('No file: ' + filename + str(e))
             return False
 
         # start a thread for receiving uart data
@@ -79,7 +79,7 @@ class DepsCommFile(QThread):
             read_bytes = line_str.encode('ISO-8859-1')
 
             # just for debugging
-            # print(">> Read Byte: " + str(read_bytes[0]) + "\n")
+            #print(">> Read Byte: " + str(read_bytes[0]) + "\n")
 
             if self.__eps_recv_flag and len(read_bytes) > 0:
                 self.sig_eps_recv_bytes.emit(bytearray(read_bytes))

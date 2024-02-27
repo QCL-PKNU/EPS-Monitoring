@@ -30,6 +30,7 @@ import cv2
 import os
 from pathlib import Path
 
+
 #######################################################################
 # DepsMainWindow class
 #######################################################################
@@ -41,34 +42,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     PREFIX_SAVE_FILE: str = '../deps_standalone/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
 
-    # CONFIG_FILE_NAME: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/src/config.ini'
-    # PREFIX_SAVE_FILE: str = '/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/save_'
-    # PSTFIX_SAVE_FILE: str = '.txt'
 
-
-    def __update_frame(self):
-            # ret, frame = self.__parent.cap.read()
-            ret, frame = self.__parent.cap.read()
-    
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            # Get the dimensions of the frame
-            height, width, channels = rgb_frame.shape
-            bytes_per_line = channels * width
-
-            # Convert the RGB frame to QImage
-            q_image = QImage(rgb_frame.data, width, height, bytes_per_line)
-         
-            # Convert QImage to QPixmap
-            pixmap = QPixmap.fromImage(q_image)
-            label_width =   self.__parent.lb_screen_thermal.width()
-            label_height = self.__parent.lb_screen_thermal.height()
-
-                # Resize the pixmap to fit the label
-            scaled_pixmap = pixmap.scaled(label_width,label_height)
-            
-            # Set the pixmap on the label
-            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
 
 
     ##
@@ -81,7 +55,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         super().__init__()
         self.setupUi(self)
         # Create a VideoCapture object
-        self.cap = cv2.VideoCapture(0)
+        # self.cap = cv2.VideoCapture(0)
+        # set up the thermal camera to get the gray16 stream and raw data
+        # self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y','1','6',' '))
+        # self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+
 
         # self.__update_frame()
         
@@ -107,6 +85,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.pb_evaluate.clicked.connect(self.slot_evaluate_clicked)
         self.pb_rawdat_save.clicked.connect(self.slot_rawdat_save_clicked)
         self.pb_rawdat_disp.clicked.connect(self.slot_rawdat_disp_clicked)
+        self.pb_current_control.clicked.connect(self.slot_current_control_clicked)
        
 
         #####################################################################
@@ -114,8 +93,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.__config = read_config_file('../deps_standalone/src/config.ini')
        
         self.__config_default = self.__config['DEFAULT']
+        # read thermal image update duration
         self.update_time: int = int(self.__config_default['thermaltime'])
-        print('update_time',self.update_time)
+        #read current update duration
+        self.current_time_update = self.__config_default['currentupdate'] 
+     
 
         #####################################################################
         # message
@@ -194,7 +176,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open('../deps_standalone/dat/test_11.txt')
+        err = self.__conn.open('../deps_standalone/dat/test_12.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -337,6 +319,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         if self.disp_state:
             self.disp_state = False
             self.pb_rawdat_disp.setText('Run')
+            
+            
         else:
             self.disp_state = True
             self.pb_rawdat_disp.setText('Stop')
@@ -350,21 +334,77 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     @pyqtSlot()
     def slot_esp_rawdat_received(self, read_bytes: QByteArray):
         rawdat = read_bytes.decode('ISO-8859-1').rstrip()
-        datbuf = self.processor.enqueue_sensor_signal(rawdat)
+        datbuf = self.processor.enqueue_sensor_signal_v2(rawdat)
 
         # YOUNGSUN
-        #print('received: ' + rawdat)
+        # print('received: ' + rawdat)
+        # print('received: ' + datbuf)
         
         if datbuf is not None:
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
-            # crnt = datbuf[3]
+            pwr= datbuf[3]
+    
         
-            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
+            #self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
             ##Current Measurement
-            # self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,PWR:{:5.3f}\n'.format(spd, ang, trq,crnt))
+            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,PWR:{:5.3f}\n'.format(spd, ang, trq,pwr))
 
+
+
+
+    ##
+    # This is a function to handle the current consumption display 
+    #
+    # @param self this object
+    # #
+    def update_current_consumption(self):
+        min, max, mean = self.processor.calculate_currrent_consumption()
+        self.lb_current_mean.setText('Mean: {:5.3f} mA'.format(mean))
+        self.lb_current_min.setText('Min: {:5.3f} mA'.format(min))
+        self.lb_current_max.setText('Max: {:5.3f} mA'.format(max))
+  
+    
+
+    ##
+    # This is a slot function to handle the current when the save image display button is clicked.
+    #
+    # @param self this object
+    #
+    @pyqtSlot()
+    def slot_current_control_clicked(self):
+        
+       
+        if self.disp_state:
+            self.disp_state = False
+            self.pb_current_control.setText('Reset')
+            self.update_timer = QTimer(self)
+            self.update_timer.timeout.connect(self.update_current_consumption)
+            self.update_current_consumption()
+            update_interval = self.current * 1000  # Convert to milliseconds
+            self.update_timer.start(update_interval)
+
+
+  
+
+        else:
+            self.disp_state = True
+            self.pb_current_control.setText('Start')
+            self.lb_current_mean.setText(f'Mean = **.** mA')
+            self.lb_current_min.setText(f'Min = **.** mA')
+            self.lb_current_max.setText(f'Max = **.** mA')
+            # min,max,mean =self.processor.calculate_currrent_consumption()
+            # self.lb_current_mean_2.setText('Mean: {:5.3f} mA'.format(mean))
+
+
+        return
+    
+
+
+
+            
+            
     ##
     # This is an event handler function for handling the window close event.
     #
@@ -433,6 +473,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
+            self.cap = cv2.VideoCapture(0)
             self.timer = QTimer()
             self.timer.timeout.connect(self.__update_frame)
             update_interval = self.__parent.update_time
@@ -457,6 +498,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 # self.thermal_camera(self.__parent)
 
             if self.__parent.eval_state:
+
                 self.__update_linearity_graph(self.__parent.processor)
 
         ##
@@ -478,6 +520,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
             self.__parent.pw_rawdat_trq.clear()
             self.__parent.pw_rawdat_trq.plot(rawdat[2], pen='b')
+            
+            self.__parent.pw_rawdat_crnt.clear()
+            self.__parent.pw_rawdat_crnt.plot(rawdat[3], pen='y')
 
         ##
         # This is a function to update the linearity points graph.
@@ -559,24 +604,52 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
+        # create mouse global coordinates
+        x_mouse = 0
+        y_mouse = 0   
 
+        # mouse events function
+        def mouse_events(event, x, y, flags, param):
+         # mouse movement event
+            if event == cv2.EVENT_MOUSEMOVE:
+            # update global mouse coordinates
+                global x_mouse
+                global y_mouse
+                x_mouse = x
+                y_mouse = y
 
-
-
+        
+        
+        ##
+        # This is a  method of obtaining the thermal image holder
+        #
+        # @param self this work thread object
+        #
 
         def __update_frame(self):
                 # Capture a frame from the camera
-                ret, frame = self.__parent.cap.read()
+    
+                ret, frame = self.cap.read()
         
                 if ret:
                     # Process the frame and update the QLabel
                     self.process_and_update_label(frame)
+                    frame =None
                 else:
                     print("Failed to capture frame from camera.")
+        
+        
+        ##
+        # This is a  method of displaying the thermal image on label
+        #
+        # @param self this work thread object
+        #
 
         def process_and_update_label(self, frame):
+        
             # Convert the image from BGR to RGB
-            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+      
 
             # Convert to QImage and then to QPixmap
             height, width, channels = rgb_image.shape
@@ -590,15 +663,21 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             # Resize the pixmap to fit the label
             scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
 
+           
+      
             # Set the pixmap on the label
             self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
 
+        
+         
+          
 
 
-            
+        
 
 
 
+    
             
 ###################################################################
 # Utility functions
