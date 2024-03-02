@@ -40,6 +40,7 @@ class DepsCommFile(QThread):
     def open(self, filename: str):
 
         try:
+            
             self.__file = open(filename, 'r')
         except FileNotFoundError as e:
             print('No file: ' + filename + str(e))

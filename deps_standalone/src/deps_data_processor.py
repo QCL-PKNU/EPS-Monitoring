@@ -18,6 +18,7 @@ DEPS_DATA_IDX = 0
 DEPS_DATA_SPD = 1
 DEPS_DATA_ANG = 2
 DEPS_DATA_TRQ = 3
+DEPS_DATA_CUR = 4
 
 
 # valid range of speed, angle, and torque
@@ -27,8 +28,8 @@ DEPS_ANG_MAX = 600
 DEPS_ANG_MIN = -600
 DEPS_TRQ_MAX = 3100
 DEPS_TRQ_MIN = 2300
-DEPS_PWR_MAX = 10000
-DEPS_PWR_MIN = 0
+DEPS_CUR_MAX = 10000
+DEPS_CUR_MIN = 0
 
 class DepsDataProcessor:
 
@@ -43,7 +44,7 @@ class DepsDataProcessor:
         self.spd_data_buf = []
         self.ang_data_buf = []
         self.trq_data_buf = []
-        self.pwr_data_buf = []
+        self.cur_data_buf = []
 
         # threshold
         self.__thv = thv
@@ -55,7 +56,7 @@ class DepsDataProcessor:
         del self.spd_data_buf
         del self.ang_data_buf
         del self.trq_data_buf
-        del self.pwr_data_buf
+        del self.cur_data_buf
 
     ##
     # This function returns the number of stored sensor signals.
@@ -76,7 +77,7 @@ class DepsDataProcessor:
             self.spd_data_buf,
             self.ang_data_buf,
             self.trq_data_buf,
-            self.pwr_data_buf,
+            self.cur_data_buf,
         ]
 
     ##
@@ -90,7 +91,7 @@ class DepsDataProcessor:
             remove_spike_noise(self.spd_data_buf),
             remove_spike_noise(self.ang_data_buf),
             remove_spike_noise(self.trq_data_buf),
-            remove_spike_noise(self.pwr_data_buf),
+            remove_spike_noise(self.cur_data_buf),
         ]
         
     ##
@@ -132,7 +133,7 @@ class DepsDataProcessor:
         
         
         if not is_valid_sensor_data(spd, ang, trq):
-            self.print_log('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}'.format(spd, ang, trq))
+            self.print('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}'.format(spd, ang, trq))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
@@ -166,12 +167,7 @@ class DepsDataProcessor:
                     # ignore invalid data string
                     return None
 
-                # Extract value and remove any trailing non-numeric characters for PWR
-                value = sig_item[sidx + 1:].strip()
-                if 'PWR' in sig_item:
-                    value = ''.join(filter(lambda x: x.isdigit() or x == '.', value))
-
-                data_buf.append(float(value))
+                data_buf.append(float(sig_item[sidx + 1:].strip()))
 
         except ValueError as e:
             # ignore invalid data string
@@ -182,17 +178,17 @@ class DepsDataProcessor:
         spd = data_buf[0]
         ang = data_buf[1]
         trq = data_buf[2]
-        pwr = data_buf[3]
+        cur = data_buf[3]
 
-
-        if not is_valid_sensor_dat_v2(spd, ang, trq,pwr):
-            print('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, PWR:{:5.3f}^J'.format(spd, ang, trq, pwr))
+        
+        if not is_valid_sensor_data_v2(spd, ang, trq,cur):
+            self.print('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, CUR:{:5.3f}'.format(spd, ang, trq, cur))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
         self.ang_data_buf.append(ang)    # ANG
         self.trq_data_buf.append(trq)    # TRQ
-        self.pwr_data_buf.append(pwr)    # PWR
+        self.cur_data_buf.append(cur)    # PWR
     
 
         return data_buf
@@ -212,7 +208,7 @@ class DepsDataProcessor:
             self.spd_data_buf.clear()
             self.ang_data_buf.clear()
             self.trq_data_buf.clear()
-            self.pwr_data_buf.clear()
+            self.cur_data_buf.clear()
 
 
         if len(self.spd_data_buf) > count:
@@ -224,8 +220,8 @@ class DepsDataProcessor:
         if len(self.trq_data_buf) > count:
             del self.trq_data_buf[0:count]
         
-        if len(self.pwr_data_buf) > count:
-            del self.pwr_data_buf[0:count]
+        if len(self.cur_data_buf) > count:
+            del self.cur_data_buf[0:count]
 
     ##
     # This function is used to process the sensor signals to calculate the linearity.
@@ -246,7 +242,7 @@ class DepsDataProcessor:
         spd_arr = self.spd_data_buf[s_idx:e_idx]
         ang_arr = self.ang_data_buf[s_idx:e_idx]
         trq_arr = self.trq_data_buf[s_idx:e_idx]
-        pwr_arr = self.pwr_data_buf[s_idx:e_idx]
+        pwr_arr = self.cur_data_buf[s_idx:e_idx]
 
         # remove spike errors
         spd_arr = remove_spike_noise(spd_arr)
@@ -291,13 +287,13 @@ class DepsDataProcessor:
     #
     # @return if the given data is valid
     #
-    def calculate_currrent_consumption(self):
+    def calculate_currrent_consumption(self): 
       
 
         # Calculate min, max, and mean
-        min_val = np.min(self.pwr_data_buf)
-        max_val = np.max(self.pwr_data_buf)
-        mean_val = np.mean(self.pwr_data_buf)
+        min_val = np.min(self.cur_data_buf)
+        max_val = np.max(self.cur_data_buf)
+        mean_val = np.mean(self.cur_data_buf)
         return min_val, max_val, mean_val
 
     
@@ -309,7 +305,7 @@ class DepsDataProcessor:
         print(self.spd_data_buf)
         print(self.ang_data_buf)
         print(self.trq_data_buf)
-        print(self.pwr_data_buf)
+        print(self.cur_data_buf)
 
 
 ###################################################################
@@ -475,7 +471,7 @@ def is_valid_sensor_data(spd: float, ang: float, trq: float):
 # @param trq torque data
 # @return if the given data is valid
 #
-def is_valid_sensor_dat_v2(spd: float, ang: float, trq: float, pwr:float):
+def is_valid_sensor_data_v2(spd: float, ang: float, trq: float, cur:float):
     if spd < DEPS_SPD_MIN or spd > DEPS_SPD_MAX:
         return False
 
@@ -485,7 +481,7 @@ def is_valid_sensor_dat_v2(spd: float, ang: float, trq: float, pwr:float):
     if trq < DEPS_TRQ_MIN or trq > DEPS_TRQ_MAX:
         return False
 
-    if pwr < DEPS_PWR_MIN or pwr > DEPS_PWR_MAX:
+    if cur < DEPS_CUR_MIN or cur > DEPS_CUR_MAX:
         return False
 
     return True

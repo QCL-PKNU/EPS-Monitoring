@@ -35,7 +35,7 @@ from pathlib import Path
 # DepsMainWindow class
 #######################################################################
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_new.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_new_2.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
@@ -176,7 +176,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open('../deps_standalone/dat/test_12.txt')
+        err = self.__conn.open('../deps_standalone/dat/dpeco_current/dpeco_data_current_measure_added_240229.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -188,17 +188,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # start to receive the eps data
         self.__conn.start_eps_recv_thread()
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     ##
     # Destructor of DepsMainWindow class
     #
@@ -344,12 +334,12 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
-            pwr= datbuf[3]
+            cur= datbuf[3]
     
         
             #self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
             ##Current Measurement
-            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,PWR:{:5.3f}\n'.format(spd, ang, trq,pwr))
+            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,CUR:{:5.3f}\n'.format(spd, ang, trq,cur))
 
 
 
@@ -382,7 +372,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.update_timer = QTimer(self)
             self.update_timer.timeout.connect(self.update_current_consumption)
             self.update_current_consumption()
-            update_interval = self.current * 1000  # Convert to milliseconds
+            update_interval = self.current_time_update * 1000  # Convert to milliseconds
             self.update_timer.start(update_interval)
 
 
@@ -473,7 +463,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
-            self.cap = cv2.VideoCapture(0)
             self.timer = QTimer()
             self.timer.timeout.connect(self.__update_frame)
             update_interval = self.__parent.update_time
@@ -604,6 +593,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
+                self.cap = cv2.VideoCapture(0)
+                
         # create mouse global coordinates
         x_mouse = 0
         y_mouse = 0   
@@ -630,6 +621,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 # Capture a frame from the camera
     
                 ret, frame = self.cap.read()
+                
         
                 if ret:
                     # Process the frame and update the QLabel
