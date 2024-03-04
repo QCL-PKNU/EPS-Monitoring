@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 
 
+
 #######################################################################
 # DepsMainWindow class
 #######################################################################
@@ -64,6 +65,15 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # self.__update_frame()
         
         
+        
+        
+        #####################################################################
+        # Save Image 
+        
+        
+        
+        
+        
     
         
         
@@ -94,7 +104,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
        
         self.__config_default = self.__config['DEFAULT']
         # read thermal image update duration
-        self.update_time: int = int(self.__config_default['thermaltime'])
+        self.update_time: int = int(self.__config_default['thermaltime'])  *1000
         #read current update duration
         self.current_time_update = self.__config_default['currentupdate'] 
      
@@ -354,6 +364,27 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.lb_current_mean.setText('Mean: {:5.3f} mA'.format(mean))
         self.lb_current_min.setText('Min: {:5.3f} mA'.format(min))
         self.lb_current_max.setText('Max: {:5.3f} mA'.format(max))
+        
+        
+    ##
+    # This is a function to save image
+    #
+    # @param self this object
+    # #
+    def save_thermal_image(self):
+        if self.cb_loading_none.isChecked():
+            # Specify the file path and format
+            now = datetime.now()
+            # Format the date and time as a string in the format YYYYMMDD_HHMMSS
+            dateString = now.strftime("%Y%m%d_%H%M%S")
+            filePath = f"/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/thermal_image/{dateString}"
+            format = "PNG"  # Format could be JPG, PNG, etc.
+
+            # Save the QPixmap
+            self.lbn.save(filePath, format)
+            print(f"Image saved as {filePath}")
+        else:
+            print("Checkbox is not checked. Image not saved.")
   
     
 
@@ -468,6 +499,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             update_interval = self.__parent.update_time
             self.timer.start(update_interval)
             # self.__update_frame()
+                    # Initialize the timer
+            self.timer1 = QTimer(self)
+            self.timer1.timeout.connect(self.save_thermal_image)
            
 
             # a buffer of lps points
@@ -593,7 +627,13 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
+        
                 self.cap = cv2.VideoCapture(0)
+                # set up the thermal camera resolution
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.__parent.lb_screen_thermal.width())
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,self.__parent.lb_screen_thermal.height())
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y','1','6',' '))
+                self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
                 
         # create mouse global coordinates
         x_mouse = 0
@@ -655,14 +695,46 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             # Resize the pixmap to fit the label
             scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
 
+            
+
            
       
             # Set the pixmap on the label
-            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
+            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap) 
+            if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
+                self.save_thermal_image()
 
         
-         
-          
+        
+        def save_thermal_image(self):
+            pixMap = self.__parent.lb_screen_thermal.pixmap()
+            # Specify the file path and format
+            now = datetime.now()
+            # Format the date and time as a string in the format YYYYMMDD_HHMMSS
+            dateString = now.strftime("%Y%m%d_%H%M%S")
+            filePath = f"../deps_standalone/dat/thermal_image/{dateString}.JPG"
+            if self.__parent.cb_save_one.isChecked():
+
+
+                # Save the QPixmap
+                pixMap.save(filePath)
+                print(f"Image saved as {filePath}")
+                
+                
+            elif self.__parent.cb_save_shot.isChecked():
+                # Store pixmap for saving in the timed method, ensure it's accessible there
+                pixMap.save(filePath)
+                print(f"Image saved as {filePath}")
+                save_interval = self.__parent.update_time
+                self.timer.start(save_interval)  # Start or restart the timer
+                
+                
+            else:
+                print("Checkbox is not checked. Image not saved.")
+                
+            self.__parent.cb_save_one.setChecked(False)
+            
+
 
 
         
