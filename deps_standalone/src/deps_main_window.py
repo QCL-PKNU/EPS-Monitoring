@@ -185,7 +185,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open('../deps_standalone/dat/dpeco_current/dpeco_data_current_measure_added_240229.txt')
+        err = self.__conn.open('../deps_standalone/dat/dpeco_current/dpeco_data_current_measure_added_240305.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -348,7 +348,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         
             #self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
             ##Current Measurement
-            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, ,CUR:{:5.3f}\n'.format(spd, ang, trq,cur))
+            self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, ,CUR:{:5.1f}\n'.format(spd, ang, trq,cur))
 
 
 
@@ -360,9 +360,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     # #
     def update_current_consumption(self):
         min, max, mean = self.processor.calculate_currrent_consumption()
-        self.lb_current_mean.setText('Mean: {:5.3f} mA'.format(mean))
-        self.lb_current_min.setText('Min: {:5.3f} mA'.format(min))
-        self.lb_current_max.setText('Max: {:5.3f} mA'.format(max))
+        self.lb_current_mean.setText('Mean: {:5.1f} mA'.format(mean))
+        self.lb_current_min.setText('Min: {:5.1f} mA'.format(min))
+        self.lb_current_max.setText('Max: {:5.1f} mA'.format(max))
         
         
     ##

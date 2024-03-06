@@ -28,7 +28,7 @@ DEPS_ANG_MAX = 600
 DEPS_ANG_MIN = -600
 DEPS_TRQ_MAX = 3100
 DEPS_TRQ_MIN = 2300
-DEPS_CUR_MAX = 10000
+DEPS_CUR_MAX = 80 
 DEPS_CUR_MIN = 0
 
 class DepsDataProcessor:
@@ -147,8 +147,8 @@ class DepsDataProcessor:
     # into the data buffers, respectively.
     #
     # @param self this object
-    # @param sig_str transferred sensor signal - "SPD:[VALUE],ANG:[VALUE],TRQ:[VALUE],PWR:[VALUE]^J"
-    # @return a list of the enqueued sensor data (spd, ang, trq,pwr)
+    # @param sig_str transferred sensor signal - "SPD:[VALUE],ANG:[VALUE],TRQ:[VALUE],CUR:[VALUE]"
+    # @return a list of the enqueued sensor data (spd, ang, trq,cur)
     #
     def enqueue_sensor_signal_v2(self, sig_str: str):        
         data_buf = []
@@ -182,7 +182,7 @@ class DepsDataProcessor:
 
         
         if not is_valid_sensor_data_v2(spd, ang, trq,cur):
-            self.print('invalidate - SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}, CUR:{:5.3f}'.format(spd, ang, trq, cur))
+            self.print('invalidate - SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, CUR:{:5.1f}'.format(spd, ang, trq, cur))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
