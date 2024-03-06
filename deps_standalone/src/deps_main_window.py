@@ -25,7 +25,6 @@ from deps_comm_file import DepsCommFile
 from deps_config_parser import read_config_file
 from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v2, calculate_linear_regression
 
-from flirpy.camera.lepton import Lepton
 import cv2
 import os
 from pathlib import Path
