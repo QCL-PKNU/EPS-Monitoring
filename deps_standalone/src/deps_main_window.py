@@ -376,7 +376,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             now = datetime.now()
             # Format the date and time as a string in the format YYYYMMDD_HHMMSS
             dateString = now.strftime("%Y%m%d_%H%M%S")
-            filePath = f"/Users/nich/Desktop/EPS-Monitoring/deps_standalone/dat/thermal_image/{dateString}"
+            filePath = f"../deps_standalone/dat/thermal_image/{dateString}"
             format = "PNG"  # Format could be JPG, PNG, etc.
 
             # Save the QPixmap
@@ -626,14 +626,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def run(self):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
-        
-                self.cap = cv2.VideoCapture(0)
-                # set up the thermal camera resolution
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.__parent.lb_screen_thermal.width())
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,self.__parent.lb_screen_thermal.height())
-                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y','1','6',' '))
-                self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
-                
+
+
         # create mouse global coordinates
         x_mouse = 0
         y_mouse = 0   
@@ -658,14 +652,44 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         def __update_frame(self):
                 # Capture a frame from the camera
-    
+                # self.image_counter =0
+                # self.color_map = self.generateColourMap
+                # self.chuncks = self.colormapChunk()
+        
+                self.cap = cv2.VideoCapture(0)
+
+
                 ret, frame = self.cap.read()
+                print('Rettttttttttttttttttt',ret)
+                cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg',frame)
+                self.cap.release()
+               
                 
         
                 if ret:
+                    # Create an object for executing CLAHE.
+                    #gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+                    gray_frame = cv2.imread('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg', cv2.IMREAD_ANYDEPTH)
+                    gray_frame_16bit = np.uint16(gray_frame)
+
+                    height, width= gray_frame_16bit.shape
+                    x_center = width // 2
+                    y_center = height // 2
+                    temperature = gray_frame_16bit[x_center,y_center]
+                    # temperature = (temperature/100)
+                    temperature = (temperature/100)*9/5-459.67
+
+                
+                   
+                    print('Frame',frame)
+                    print('temperature', temperature)
+                    # write temperature
+                    cv2.putText(frame, "{0:.1f} Fa".format(temperature),(x_center,y_center+15), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
+                    cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp_frame.jpg',frame)
+
                     # Process the frame and update the QLabel
                     self.process_and_update_label(frame)
-                    frame =None
+                    # self.cap.release()
                 else:
                     print("Failed to capture frame from camera.")
         
@@ -679,15 +703,20 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def process_and_update_label(self, frame):
         
             # Convert the image from BGR to RGB
-            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+            frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+            #rgb_image = frame
+            #print('dataaaaaaaaaaaaaa', rgb_image.data)
+
       
 
             # Convert to QImage and then to QPixmap
-            height, width, channels = rgb_image.shape
-            bytes_per_line = channels * width
-            q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(q_image)
-
+            #height,width = frame.shape
+            height, width, channels = frame.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap("/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp_frame.jpg")
+            #pixmap = QPixmap.fromImage(q_image)
             label_width = self.__parent.lb_screen_thermal.width()
             label_height = self.__parent.lb_screen_thermal.height()
 
@@ -702,6 +731,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap) 
             if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
                 self.save_thermal_image()
+
+            pixmap =None
 
         
         
@@ -723,7 +754,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             elif self.__parent.cb_save_shot.isChecked():
                 # Store pixmap for saving in the timed method, ensure it's accessible there
                 pixMap.save(filePath)
-                print(f"Image saved as {filePath}")
+                #print(f"Image saved as {filePath}")
                 save_interval = self.__parent.update_time
                 self.timer.start(save_interval)  # Start or restart the timer
                 
@@ -732,7 +763,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 print("Checkbox is not checked. Image not saved.")
                 
             self.__parent.cb_save_one.setChecked(False)
-            
+
 
 
 
