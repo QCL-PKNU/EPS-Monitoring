@@ -28,6 +28,9 @@ from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v
 import cv2
 import os
 from pathlib import Path
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
 
 
 
@@ -660,7 +663,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
 
                 ret, frame = self.cap.read()
-                print('Rettttttttttttttttttt',ret)
+               
                 cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg',frame)
                 self.cap.release()
                
@@ -669,22 +672,43 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 if ret:
                     # Create an object for executing CLAHE.
                     #gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-                    gray_frame = cv2.imread('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg', cv2.IMREAD_ANYDEPTH)
-                    gray_frame_16bit = np.uint16(gray_frame)
+                    gray_frame_16bit = cv2.imread('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg', cv2.IMREAD_GRAYSCALE)
+                    # gray_frame_16bit = np.uint16(gray_frame)
+                    # convert the gray16 image into a gray8
+                    # gray8_image = np.zeros((120, 160), dtype=np.uint8)
+                    # gray8_image = cv2.normalize(gray_frame_16bit , gray8_image, 0, 255, cv2.NORM_MINMAX)
+                    # gray8_image = np.uint8(gray8_image)
 
                     height, width= gray_frame_16bit.shape
                     x_center = width // 2
                     y_center = height // 2
                     temperature = gray_frame_16bit[x_center,y_center]
-                    # temperature = (temperature/100)
-                    temperature = (temperature/100)*9/5-459.67
+                    # temperature = ((temperature/ 100))-273.15
+                    # temperature = (temperature/100)-273.15
+                    # temperature = (temperature/100)-32
+                    
+                    #Min and Max of EPS system should be
+                    min_tem = -40
+                    max_tem = 85
+                    tem_range = max_tem-min_tem
+                    # pixel_values = gray_frame_16bit.astype(np.float32)
+                    pixel_values = temperature.astype(np.float32)
+
+                    temperatures = ((pixel_values/255)* tem_range ) + min_tem
+                    avgt = np.mean(temperatures)
+
+
+
+
+                    
+                    
 
                 
                    
                     print('Frame',frame)
                     print('temperature', temperature)
                     # write temperature
-                    cv2.putText(frame, "{0:.1f} Fa".format(temperature),(x_center,y_center+15), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
+                    cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
                     cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp_frame.jpg',frame)
 
                     # Process the frame and update the QLabel
