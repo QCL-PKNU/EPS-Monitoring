@@ -656,7 +656,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         
                 if ret:
                     # Read the temporaray image as grayscale
-                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg', cv2.IMREAD_GRAYSCALE)
+                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg', cv2.IMREAD_GRAYSCALE)
                     height, width= gray_frame_16bit.shape
                     x_center = width // 2
                     y_center = height // 2
