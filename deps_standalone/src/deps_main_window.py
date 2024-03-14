@@ -28,8 +28,7 @@ from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v
 import cv2
 import os
 from pathlib import Path
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
 
 
 
@@ -38,12 +37,16 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 # DepsMainWindow class
 #######################################################################
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_new_2.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_main_window_v2.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
     PREFIX_SAVE_FILE: str = '../deps_standalone/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
+    THML_DIRECTORY: str ='../deps_standalone/dat/thermal_image'
+    #save the temporary Pixmap
+    TMP_DIRECTORY : str = '../deps_standalone/dat/tmp'
+    DATA_FILE_DIR :str = '../deps_standalone/dat/dpeco_current'
 
 
 
@@ -188,7 +191,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open('../deps_standalone/dat/dpeco_current/dpeco_data_current_measure_added_240305.txt')
+        err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -379,8 +382,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             now = datetime.now()
             # Format the date and time as a string in the format YYYYMMDD_HHMMSS
             dateString = now.strftime("%Y%m%d_%H%M%S")
-            filePath = f"../deps_standalone/dat/thermal_image/{dateString}"
-            format = "PNG"  # Format could be JPG, PNG, etc.
+            filePath = f"{self.THML_DIRECTORY}/{dateString}"
+            format = "JPG"  # Format could be JPG, PNG, etc.
 
             # Save the QPixmap
             self.lbn.save(filePath, format)
@@ -631,21 +634,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 self.sig_update_graphs.emit()
 
 
-        # create mouse global coordinates
-        x_mouse = 0
-        y_mouse = 0   
-
-        # mouse events function
-        def mouse_events(event, x, y, flags, param):
-         # mouse movement event
-            if event == cv2.EVENT_MOUSEMOVE:
-            # update global mouse coordinates
-                global x_mouse
-                global y_mouse
-                x_mouse = x
-                y_mouse = y
-
-        
+    
         
         ##
         # This is a  method of obtaining the thermal image holder
@@ -654,40 +643,27 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         #
 
         def __update_frame(self):
-                # Capture a frame from the camera
-                # self.image_counter =0
-                # self.color_map = self.generateColourMap
-                # self.chuncks = self.colormapChunk()
-        
+                # Capture a frame from the camera   
                 self.cap = cv2.VideoCapture(0)
 
 
                 ret, frame = self.cap.read()
-               
-                cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg',frame)
+
+                cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
                 self.cap.release()
                
                 
         
                 if ret:
-                    # Create an object for executing CLAHE.
-                    #gray_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-                    gray_frame_16bit = cv2.imread('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp.jpg', cv2.IMREAD_GRAYSCALE)
-                    # gray_frame_16bit = np.uint16(gray_frame)
-                    # convert the gray16 image into a gray8
-                    # gray8_image = np.zeros((120, 160), dtype=np.uint8)
-                    # gray8_image = cv2.normalize(gray_frame_16bit , gray8_image, 0, 255, cv2.NORM_MINMAX)
-                    # gray8_image = np.uint8(gray8_image)
-
+                    # Read the temporaray image as grayscale
+                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg', cv2.IMREAD_GRAYSCALE)
                     height, width= gray_frame_16bit.shape
                     x_center = width // 2
                     y_center = height // 2
                     temperature = gray_frame_16bit[x_center,y_center]
-                    # temperature = ((temperature/ 100))-273.15
-                    # temperature = (temperature/100)-273.15
-                    # temperature = (temperature/100)-32
+
                     
-                    #Min and Max of EPS system should be
+                    #Min and Max temperature of EPS system should be
                     min_tem = -40
                     max_tem = 85
                     tem_range = max_tem-min_tem
@@ -698,22 +674,13 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                     avgt = np.mean(temperatures)
 
 
-
-
-                    
-                    
-
-                
-                   
-                    print('Frame',frame)
-                    print('temperature', temperature)
                     # write temperature
                     cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
-                    cv2.imwrite('/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp_frame.jpg',frame)
+                    cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
 
                     # Process the frame and update the QLabel
                     self.process_and_update_label(frame)
-                    # self.cap.release()
+                  
                 else:
                     print("Failed to capture frame from camera.")
         
@@ -735,12 +702,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
       
 
             # Convert to QImage and then to QPixmap
-            #height,width = frame.shape
             height, width, channels = frame.shape
             bytes_per_line = 3 * width
-            q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap("/home/hyper/Desktop/QCL_projects/EPS-Monitoring/deps_standalone/dat/tmp/tmp_frame.jpg")
-            #pixmap = QPixmap.fromImage(q_image)
+            # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
+          
             label_width = self.__parent.lb_screen_thermal.width()
             label_height = self.__parent.lb_screen_thermal.height()
 
@@ -766,19 +732,19 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             now = datetime.now()
             # Format the date and time as a string in the format YYYYMMDD_HHMMSS
             dateString = now.strftime("%Y%m%d_%H%M%S")
-            filePath = f"../deps_standalone/dat/thermal_image/{dateString}.JPG"
+            filePath = f"{self.__parent.THML_DIRECTORY}/{dateString}.JPG"
             if self.__parent.cb_save_one.isChecked():
-
 
                 # Save the QPixmap
                 pixMap.save(filePath)
-                print(f"Image saved as {filePath}")
+                self.__parent.cb_save_one.setChecked(False)
+               
                 
                 
             elif self.__parent.cb_save_shot.isChecked():
                 # Store pixmap for saving in the timed method, ensure it's accessible there
                 pixMap.save(filePath)
-                #print(f"Image saved as {filePath}")
+               
                 save_interval = self.__parent.update_time
                 self.timer.start(save_interval)  # Start or restart the timer
                 
@@ -786,7 +752,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             else:
                 print("Checkbox is not checked. Image not saved.")
                 
-            self.__parent.cb_save_one.setChecked(False)
+            
 
 
 
