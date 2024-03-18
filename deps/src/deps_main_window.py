@@ -21,7 +21,7 @@ from PyQt5.QtCore import QTimer
 
 from deps_error import DepsError
 from deps_comm_conn import DepsCommConn
-from deps_comm_file import DepsCommFile
+# from deps_comm_file import DepsCommFile
 from deps_config_parser import read_config_file
 from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v2, calculate_linear_regression
 
@@ -37,16 +37,16 @@ from pathlib import Path
 # DepsMainWindow class
 #######################################################################
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_main_window_v2.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps/res/deps_main_window_v2.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
-    PREFIX_SAVE_FILE: str = '../deps_standalone/dat/save_'
+    PREFIX_SAVE_FILE: str = '../deps/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
-    THML_DIRECTORY: str ='../deps_standalone/dat/thermal_image'
+    THML_DIRECTORY: str ='../deps/dat/thermal_image'
     #save the temporary Pixmap
-    TMP_DIRECTORY : str = '../deps_standalone/dat/tmp'
-    DATA_FILE_DIR :str = '../deps_standalone/dat/dpeco_current'
+    TMP_DIRECTORY : str = '../deps/dat/tmp'
+    DATA_FILE_DIR :str = '../EPS-Monitoring/deps/dat/dpeco_current'
 
 
 
@@ -105,7 +105,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         #####################################################################
         # read config file
-        self.__config = read_config_file('../deps_standalone/src/config.ini')
+        self.__config = read_config_file('../deps/src/config.ini')
        
         self.__config_default = self.__config['DEFAULT']
         # read thermal image update duration
@@ -187,7 +187,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         #####################################################################
         # initialize the uart communication
-        self.__conn = DepsCommFile()
+        self.__conn = DepsCommConn()
 
         # filename
         # err = self.__conn.open('../dat/test_11.txt')
