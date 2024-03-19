@@ -13,27 +13,42 @@ import os.path
 import threading
 import numpy as np
 from datetime import datetime
-
+import PyQt5
 from PyQt5 import uic
-from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, QByteArray, QThread, pyqtSignal,Qt
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import QTimer
 
 from deps_error import DepsError
 from deps_comm_conn import DepsCommConn
-from deps_comm_file import DepsCommFile
+# from deps_comm_file import DepsCommFile
 from deps_config_parser import read_config_file
 from deps_data_processor import DepsDataProcessor, calculate_linear_regression_v2, calculate_linear_regression
+
+import cv2
+import os
+from pathlib import Path
+
+
+
+
 
 #######################################################################
 # DepsMainWindow class
 #######################################################################
-
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../res/deps_main_window.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps/res/deps_main_window_v2.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
-    PREFIX_SAVE_FILE: str = '../dat/save_'
+    PREFIX_SAVE_FILE: str = '../deps/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
+    THML_DIRECTORY: str ='../deps/dat/thermal_image'
+    #save the temporary Pixmap
+    TMP_DIRECTORY : str = '../deps/dat/tmp'
+
+
+
 
     ##
     # Constructor of DepsMainWindow class
@@ -45,12 +60,15 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         super().__init__()
         self.setupUi(self)
 
+    
+
         #####################################################################
         # plot widget initialization
         plot_widgets = [
             self.pw_rawdat_spd,
             self.pw_rawdat_ang,
-            self.pw_rawdat_trq
+            self.pw_rawdat_trq,
+            self.pw_rawdat_crnt
         ]
 
         for pw in plot_widgets:
@@ -61,11 +79,19 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.pb_evaluate.clicked.connect(self.slot_evaluate_clicked)
         self.pb_rawdat_save.clicked.connect(self.slot_rawdat_save_clicked)
         self.pb_rawdat_disp.clicked.connect(self.slot_rawdat_disp_clicked)
+        self.pb_current_control.clicked.connect(self.slot_current_control_clicked)
+       
 
         #####################################################################
         # read config file
-        self.__config = read_config_file('config.ini')
+        self.__config = read_config_file('../deps/src/config.ini')
+       
         self.__config_default = self.__config['DEFAULT']
+        # read thermal image update duration
+        self.update_time: int = int(self.__config_default['thermaltime'])  *1000
+        #read current update duration
+        self.current_time_update = self.__config_default['currentupdate'] 
+     
 
         #####################################################################
         # message
@@ -129,14 +155,24 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         #####################################################################
         # initialize the uart communication
         self.__conn = DepsCommConn()
-
+        
         # baudrate
         baudrate = int(self.__config_default['baudrate'])
-
+        
         err = self.__conn.open(baudrate)
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
+
+        #####################################################################
+        # initialize the uart communication 
+        # self.__conn = DepsCommConn()
+
+        # # filename
+        # err = self.__conn.open('../deps/dat/dpeco_data_240305.txt')
+        # if err != DepsError.SUCCESS:
+        #     self.print_log("EPS connection is not opened: " + err.name)
+        #     return
 
         # signal for receiving esp data
         self.__conn.sig_eps_recv_bytes.connect(
@@ -144,6 +180,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         
         # start to receive the eps data
         self.__conn.start_eps_recv_thread()
+
 
     ##
     # Destructor of DepsMainWindow class
@@ -191,7 +228,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 break
 
             # transfer the input signal into the data processor
-            self.processor.enqueue_sensor_signal(line_str)
+            self.processor.enqueue_sensor_signal_v2(line_str)
 
         # close the save file
         save_fp.close()
@@ -200,6 +237,23 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     ###################################################################
     # Slot functions
     ###################################################################
+    
+      ##
+    # This is a  function to handle the signal
+    # when the save jpg is clicked.
+    #
+    # @param self this object
+    #
+    # @pyqtSlot()
+    # def slot_savejpg_clicked(self):
+    #     if self.eval_state:
+    #         self.eval_state = False
+    #         self.__conn.stop_eps_recv_thread()
+    #         self.pb_evaluate.setText('Continue')
+    #     else:
+    #         self.eval_state = True
+    #         self.__conn.start_eps_recv_thread()
+    #         self.pb_evaluate.setText('Pause')
 
     ##
     # This is a slot function to handle the signal
@@ -248,6 +302,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         if self.disp_state:
             self.disp_state = False
             self.pb_rawdat_disp.setText('Run')
+            
+            
         else:
             self.disp_state = True
             self.pb_rawdat_disp.setText('Stop')
@@ -261,15 +317,95 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     @pyqtSlot()
     def slot_esp_rawdat_received(self, read_bytes: QByteArray):
         rawdat = read_bytes.decode('ISO-8859-1').rstrip()
-        datbuf = self.processor.enqueue_sensor_signal(rawdat)
+        datbuf = self.processor.enqueue_sensor_signal_v2(rawdat)
+
+        # YOUNGSUN
+        # print('received: ' + rawdat)
+        # print('received: ' + datbuf)
         
         if datbuf is not None:
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
-        
-            self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
+            cur= datbuf[3]
+    
+            self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, ,CUR:{:5.1f}\n'.format(spd, ang, trq,cur))
 
+
+
+
+    ##
+    # This is a function to handle the current consumption display 
+    #
+    # @param self this object
+    # #
+    def update_current_consumption(self):
+        min, max, mean = self.processor.calculate_currrent_consumption()
+        self.lb_current_mean.setText('Mean: {:5.1f} mA'.format(mean))
+        self.lb_current_min.setText('Min: {:5.1f} mA'.format(min))
+        self.lb_current_max.setText('Max: {:5.1f} mA'.format(max))
+        
+        
+    ##
+    # This is a function to save image
+    #
+    # @param self this object
+    # #
+    def save_thermal_image(self):
+        if self.cb_loading_none.isChecked():
+            # Specify the file path and format
+            now = datetime.now()
+            # Format the date and time as a string in the format YYYYMMDD_HHMMSS
+            dateString = now.strftime("%Y%m%d_%H%M%S")
+            filePath = f"{self.THML_DIRECTORY}/{dateString}"
+            format = "JPG"  # Format could be JPG, PNG, etc.
+
+            # Save the QPixmap
+            self.lbn.save(filePath, format)
+            print(f"Image saved as {filePath}")
+        else:
+            print("Checkbox is not checked. Image not saved.")
+  
+    
+
+    ##
+    # This is a slot function to handle the current when the save image display button is clicked.
+    #
+    # @param self this object
+    #
+    @pyqtSlot()
+    def slot_current_control_clicked(self):
+        
+       
+        if self.disp_state:
+            self.disp_state = False
+            self.pb_current_control.setText('Reset')
+            self.update_timer = QTimer(self)
+            self.update_timer.timeout.connect(self.update_current_consumption)
+            self.update_current_consumption()
+            update_interval = self.current_time_update * 1000  # Convert to milliseconds
+            self.update_timer.start(update_interval)
+
+
+  
+
+        else:
+            self.disp_state = True
+            self.pb_current_control.setText('Start')
+            self.lb_current_mean.setText(f'Mean = **.** mA')
+            self.lb_current_min.setText(f'Min = **.** mA')
+            self.lb_current_max.setText(f'Max = **.** mA')
+            # min,max,mean =self.processor.calculate_currrent_consumption()
+            # self.lb_current_mean_2.setText('Mean: {:5.3f} mA'.format(mean))
+
+
+        return
+    
+
+
+
+            
+            
     ##
     # This is an event handler function for handling the window close event.
     #
@@ -314,6 +450,11 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # close the file
         fd.close()
 
+
+
+
+
+
     #############################################################
     # WorkerThread class
     #############################################################
@@ -326,11 +467,22 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     class WorkerThread(QThread):
         # UI update signale
         sig_update_graphs = pyqtSignal()
+        image_captured = pyqtSignal(np.ndarray)
+
 
         def __init__(self, parent, event):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.__update_frame)
+            update_interval = self.__parent.update_time
+            self.timer.start(update_interval)
+            # self.__update_frame()
+                    # Initialize the timer
+            self.timer1 = QTimer(self)
+            self.timer1.timeout.connect(self.save_thermal_image)
+           
 
             # a buffer of lps points
             self.__lps_buffer = []
@@ -346,8 +498,10 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def slot_update_graphs(self):
             if self.__parent.disp_state:
                 self.__update_rawdat_graph(self.__parent.processor)
+                # self.thermal_camera(self.__parent)
 
             if self.__parent.eval_state:
+
                 self.__update_linearity_graph(self.__parent.processor)
 
         ##
@@ -369,6 +523,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
             self.__parent.pw_rawdat_trq.clear()
             self.__parent.pw_rawdat_trq.plot(rawdat[2], pen='b')
+            
+            self.__parent.pw_rawdat_crnt.clear()
+            self.__parent.pw_rawdat_crnt.plot(rawdat[3], pen='y')
 
         ##
         # This is a function to update the linearity points graph.
@@ -429,6 +586,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             except ValueError as e:
                 print('__update_linearity_graph error: {}'.format(str(e)))
 
+            print('test: ' + str(num_sig))
+
             # refresh sensor data buffer
             if num_sig >= self.__parent.refresh_rate:
                 # store all the linearity points into the buffer
@@ -436,7 +595,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                     self.__lps_buffer[i].extend(lps_list[i])
 
                 # remove all the sensor data
+                print('before reset buffer - ' + str(proc.num_sensor_signal()))
                 proc.dequeue_sensor_signal()
+                print('after reset buffer - ' + str(proc.num_sensor_signal()))
 
         ##
         # This is a run method of this worker thread.
@@ -447,6 +608,136 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             while not self.__stopped.wait(1):
                 self.sig_update_graphs.emit()
 
+
+    
+        
+        ##
+        # This is a  method of obtaining the thermal image holder
+        #
+        # @param self this work thread object
+        #
+
+        def __update_frame(self):
+                # Capture a frame from the camera   
+                self.cap = cv2.VideoCapture(0)
+
+
+                ret, frame = self.cap.read()
+
+                cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
+                self.cap.release()
+               
+                
+        
+                if ret:
+                    # Read the temporaray image as grayscale
+                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg', cv2.IMREAD_GRAYSCALE)
+                    height, width= gray_frame_16bit.shape
+                    x_center = width // 2
+                    y_center = height // 2
+                    temperature = gray_frame_16bit[x_center,y_center]
+
+                    
+                    #Min and Max temperature of EPS system should be
+                    min_tem = -40
+                    max_tem = 85
+                    tem_range = max_tem-min_tem
+                    # pixel_values = gray_frame_16bit.astype(np.float32)
+                    pixel_values = temperature.astype(np.float32)
+
+                    temperatures = ((pixel_values/255)* tem_range ) + min_tem
+                    avgt = np.mean(temperatures)
+
+
+                    # write temperature
+                    cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
+                    cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
+
+                    # Process the frame and update the QLabel
+                    self.process_and_update_label(frame)
+                  
+                else:
+                    print("Failed to capture frame from camera.")
+        
+        
+        ##
+        # This is a  method of displaying the thermal image on label
+        #
+        # @param self this work thread object
+        #
+
+        def process_and_update_label(self, frame):
+        
+            # Convert the image from BGR to RGB
+            frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+            #rgb_image = frame
+            #print('dataaaaaaaaaaaaaa', rgb_image.data)
+
+      
+
+            # Convert to QImage and then to QPixmap
+            height, width, channels = frame.shape
+            bytes_per_line = 3 * width
+            # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
+          
+            label_width = self.__parent.lb_screen_thermal.width()
+            label_height = self.__parent.lb_screen_thermal.height()
+
+            # Resize the pixmap to fit the label
+            scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
+
+            
+
+           
+      
+            # Set the pixmap on the label
+            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap) 
+            if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
+                self.save_thermal_image()
+
+            pixmap =None
+
+        
+        
+        def save_thermal_image(self):
+            pixMap = self.__parent.lb_screen_thermal.pixmap()
+            # Specify the file path and format
+            now = datetime.now()
+            # Format the date and time as a string in the format YYYYMMDD_HHMMSS
+            dateString = now.strftime("%Y%m%d_%H%M%S")
+            filePath = f"{self.__parent.THML_DIRECTORY}/{dateString}.JPG"
+            if self.__parent.cb_save_one.isChecked():
+
+                # Save the QPixmap
+                pixMap.save(filePath)
+                self.__parent.cb_save_one.setChecked(False)
+               
+                
+                
+            elif self.__parent.cb_save_shot.isChecked():
+                # Store pixmap for saving in the timed method, ensure it's accessible there
+                pixMap.save(filePath)
+               
+                save_interval = self.__parent.update_time
+                self.timer.start(save_interval)  # Start or restart the timer
+                
+                
+            else:
+                print("Checkbox is not checked. Image not saved.")
+                
+            
+
+
+
+
+        
+
+
+
+    
+            
 ###################################################################
 # Utility functions
 ###################################################################
