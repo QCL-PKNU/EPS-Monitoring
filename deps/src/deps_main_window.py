@@ -46,7 +46,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     THML_DIRECTORY: str ='../deps/dat/thermal_image'
     #save the temporary Pixmap
     TMP_DIRECTORY : str = '../deps/dat/tmp'
-    DATA_FILE_DIR :str = '../EPS-Monitoring/deps/dat/dpeco_current'
 
 
 
@@ -60,28 +59,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         super().__init__()
         self.setupUi(self)
-        # Create a VideoCapture object
-        # self.cap = cv2.VideoCapture(0)
-        # set up the thermal camera to get the gray16 stream and raw data
-        # self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y','1','6',' '))
-        # self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
 
-
-        # self.__update_frame()
-        
-        
-        
-        
-        #####################################################################
-        # Save Image 
-        
-        
-        
-        
-        
     
-        
-        
 
         #####################################################################
         # plot widget initialization
@@ -175,26 +154,25 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         #####################################################################
         # initialize the uart communication
-        # self.__conn = DepsCommConn()
-        #
-        # # baudrate
-        # baudrate = int(self.__config_default['baudrate'])
-        #
-        # err = self.__conn.open(baudrate)
-        # if err != DepsError.SUCCESS:
-        #     self.print_log("EPS connection is not opened: " + err.name)
-        #     return
-
-        #####################################################################
-        # initialize the uart communication
         self.__conn = DepsCommConn()
-
-        # filename
-        # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
+        
+        # baudrate
+        baudrate = int(self.__config_default['baudrate'])
+        
+        err = self.__conn.open(baudrate)
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
+
+        #####################################################################
+        # initialize the uart communication 
+        # self.__conn = DepsCommConn()
+
+        # # filename
+        # err = self.__conn.open('../deps/dat/dpeco_data_240305.txt')
+        # if err != DepsError.SUCCESS:
+        #     self.print_log("EPS connection is not opened: " + err.name)
+        #     return
 
         # signal for receiving esp data
         self.__conn.sig_eps_recv_bytes.connect(
@@ -250,7 +228,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 break
 
             # transfer the input signal into the data processor
-            self.processor.enqueue_sensor_signal(line_str)
+            self.processor.enqueue_sensor_signal_v2(line_str)
 
         # close the save file
         save_fp.close()
@@ -261,21 +239,21 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     ###################################################################
     
       ##
-    # This is a slot function to handle the signal
+    # This is a  function to handle the signal
     # when the save jpg is clicked.
     #
     # @param self this object
     #
-    @pyqtSlot()
-    def slot_savejpg_clicked(self):
-        if self.eval_state:
-            self.eval_state = False
-            self.__conn.stop_eps_recv_thread()
-            self.pb_evaluate.setText('Continue')
-        else:
-            self.eval_state = True
-            self.__conn.start_eps_recv_thread()
-            self.pb_evaluate.setText('Pause')
+    # @pyqtSlot()
+    # def slot_savejpg_clicked(self):
+    #     if self.eval_state:
+    #         self.eval_state = False
+    #         self.__conn.stop_eps_recv_thread()
+    #         self.pb_evaluate.setText('Continue')
+    #     else:
+    #         self.eval_state = True
+    #         self.__conn.start_eps_recv_thread()
+    #         self.pb_evaluate.setText('Pause')
 
     ##
     # This is a slot function to handle the signal
@@ -351,9 +329,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             trq = datbuf[2]
             cur= datbuf[3]
     
-        
-            #self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
-            ##Current Measurement
             self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, ,CUR:{:5.1f}\n'.format(spd, ang, trq,cur))
 
 
