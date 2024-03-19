@@ -12,6 +12,7 @@ Clone Project
   git clone https://github.com/QCL-PKNU/EPS-Monitoring.git
   cd  EPS-Monitoring 
   cd deps
+```
 
 ## Features updates
 - New update UI based on 7 inches screen of Raspberry Pi (v2.ui)
