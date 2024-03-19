@@ -18,7 +18,7 @@ Clone Project
 
 
     .
-    ├── deps                    # Our main folder consists of connection GPIO of Raspberry Pi
+    ├── deps                    # Contains the main work, documents 
     ├── deps_sensor             # Arduino code 
     ├── deps_standalone         # Contains of the mimic codes from deps package that used for testing our project.
     └── README.md
