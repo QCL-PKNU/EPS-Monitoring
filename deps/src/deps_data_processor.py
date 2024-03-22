@@ -155,7 +155,7 @@ class DepsDataProcessor:
 
         try:
             sig_items = sig_str.split(',')
-            print('sig_items', sig_items)
+            # print('sig_items', sig_items)
 
             if len(sig_items) != 4:
                 # ignore invalid data string
@@ -180,6 +180,11 @@ class DepsDataProcessor:
         ang = data_buf[1]
         trq = data_buf[2]
         cur = data_buf[3]
+        print('spd data', spd)
+        print('ang data',ang)
+        print('trq data',trq)
+        print('cur data',cur)
+        
 
         
         if not is_valid_sensor_data_v2(spd, ang, trq,cur):
