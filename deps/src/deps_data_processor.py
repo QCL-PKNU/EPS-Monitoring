@@ -155,6 +155,7 @@ class DepsDataProcessor:
 
         try:
             sig_items = sig_str.split(',')
+            print('sig_items', sig_items)
 
             if len(sig_items) != 4:
                 # ignore invalid data string

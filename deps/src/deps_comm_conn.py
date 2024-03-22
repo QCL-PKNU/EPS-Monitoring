@@ -61,7 +61,7 @@ class DepsCommConn(QThread):
 
         # uart initialization (TX: 8, RX: 10)
         try:
-            self.__uart = serial.Serial('/dev/ttyACM0', baudrate=baud, timeout=1)
+            self.__uart = serial.Serial('/dev/ttyS0', baudrate=baud, timeout=1)
             self.__uart.flush()
         except ValueError:
             return DepsError.ERROR_UART_PARAM
