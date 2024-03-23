@@ -16,6 +16,8 @@ import RPi.GPIO as GPIO
 from deps_error import DepsError
 from PyQt5.QtCore import QThread, pyqtSignal
 
+import logging
+
 #######################################################################
 # DepsCommConn class
 #######################################################################
@@ -28,6 +30,7 @@ class DepsCommConn(QThread):
     def __init__(self):
 
         super().__init__()
+        GPIO.setwarnings(False)
         
         #uart handle
         self.__uart = None
@@ -63,6 +66,7 @@ class DepsCommConn(QThread):
         try:
             self.__uart = serial.Serial('/dev/ttyS0', baudrate=baud, timeout=1)
             self.__uart.flush()
+            
         except ValueError:
             return DepsError.ERROR_UART_PARAM
         except serial.SerialException as e:
@@ -96,7 +100,6 @@ class DepsCommConn(QThread):
 
     # eps read signal
     sig_eps_recv_bytes = pyqtSignal(bytearray)
-
     ##
     # This is a thread routine for receiving eps sensor data.
     #
@@ -107,17 +110,24 @@ class DepsCommConn(QThread):
         while True:
             # read the eps sensor data byte one by one
             try:
-                read_bytes = self.__uart.read_until(b'\x0A')
+                 if not self.__uart.isOpen():
+                    self.__uart.open()
+                 read_bytes = self.__uart.read_until(b'\x0A')
+                 #read_bytes = self.__uart.readline()
+                 #print('>>>read_bytes from uart connection', str(read_bytes)
             except serial.SerialException as e:
                 print('UART read exception occurs...' + str(e))
                 self.msleep(1000)
                 continue
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
 
             # just for debugging
-            # print(">> Read Byte: " + str(read_bytes[0]) + "\n")
+            #print(">> Read Byte: " + str(read_bytes[0]) + "\n")
 
             if self.__eps_recv_flag and len(read_bytes) > 0:
                 self.sig_eps_recv_bytes.emit(bytearray(read_bytes))
+               
 
             # wait for 0.001 sec
             self.msleep(1)

@@ -41,7 +41,7 @@ MW_Ui, MW_Base = uic.loadUiType("../deps/res/deps_main_window_v2.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
-    PREFIX_SAVE_FILE: str = '../deps/dat/save_'
+    PREFIX_SAVE_FILE: str = '../deps/dat/dpeco_current/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
     THML_DIRECTORY: str ='../deps/dat/thermal_image'
     #save the temporary Pixmap
@@ -160,6 +160,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         baudrate = int(self.__config_default['baudrate'])
         
         err = self.__conn.open(baudrate)
+        
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -169,7 +170,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # self.__conn = DepsCommConn()
 
         # # filename
-        # err = self.__conn.open('../deps/dat/dpeco_data_240305.txt')
+        #err = self.__conn.open('../deps/dat/dpeco_data_240305.txt')
         # if err != DepsError.SUCCESS:
         #     self.print_log("EPS connection is not opened: " + err.name)
         #     return
@@ -224,6 +225,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # saved data read
         while True:
             line_str = save_fp.readline().rstrip()
+           
+            
+           
             if not line_str:
                 break
 
@@ -290,7 +294,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # open a new save file
         self.save_fp = open(new_save_path(), 'w')
-        self.__config_default['Saved'] = self.save_fp.name
+        self.__config_default['saved'] = self.save_fp.name
 
     ##
     # This is a slot function to handle the signal when the raw data display button is clicked.
@@ -316,20 +320,24 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     #
     @pyqtSlot()
     def slot_esp_rawdat_received(self, read_bytes: QByteArray):
+        
         rawdat = read_bytes.decode('ISO-8859-1').rstrip()
         datbuf = self.processor.enqueue_sensor_signal_v2(rawdat)
 
         # YOUNGSUN
-        # print('received: ' + rawdat)
-        # print('received: ' + datbuf)
+        #print('>>>>>>recei databuf: ' + str(datbuf))
+        
+        
         
         if datbuf is not None:
+            
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
-            cur= datbuf[3]
-    
-            self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, ,CUR:{:5.1f}\n'.format(spd, ang, trq,cur))
+            cur = datbuf[3]
+            self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f},CUR:{:5.1f}\n'.format(spd, ang,trq,cur))
+            
+            
 
 
 
@@ -501,6 +509,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 # self.thermal_camera(self.__parent)
 
             if self.__parent.eval_state:
+                
 
                 self.__update_linearity_graph(self.__parent.processor)
 
@@ -620,19 +629,21 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def __update_frame(self):
                 # Capture a frame from the camera   
                 self.cap = cv2.VideoCapture(0)
+                print('>>> video is captured')
 
 
                 ret, frame = self.cap.read()
 
-                cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
-                self.cap.release()
+                #cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
+                #self.cap.release()
                
                 
         
                 if ret:
                     # Read the temporaray image as grayscale
-                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg', cv2.IMREAD_GRAYSCALE)
-                    height, width= gray_frame_16bit.shape
+                    #gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg', cv2.IMREAD_GRAYSCALE)
+                    gray_frame_16bit = frame
+                    height, width,_= gray_frame_16bit.shape
                     x_center = width // 2
                     y_center = height // 2
                     temperature = gray_frame_16bit[x_center,y_center]

@@ -77,7 +77,7 @@ class DepsDataProcessor:
             self.spd_data_buf,
             self.ang_data_buf,
             self.trq_data_buf,
-            self.cur_data_buf,
+            self.cur_data_buf
         ]
 
     ##
@@ -108,9 +108,9 @@ class DepsDataProcessor:
         try:
             sig_items = sig_str.split(',')
 
-            if len(sig_items) != 3:
-                # ignore invalid data string
-                return None
+#             if len(sig_items) != 4:
+#                 # ignore invalid data string
+#                 return None
 
             # split the input string into
             for sig_item in sig_items:
@@ -130,6 +130,7 @@ class DepsDataProcessor:
         spd = data_buf[0]
         ang = data_buf[1]
         trq = data_buf[2]
+       
         
         
         if not is_valid_sensor_data(spd, ang, trq):
@@ -139,7 +140,7 @@ class DepsDataProcessor:
         self.spd_data_buf.append(spd)    # SPD
         self.ang_data_buf.append(ang)    # ANG
         self.trq_data_buf.append(trq)    # TRQ
-        
+       
         return data_buf
     
    ##
@@ -154,11 +155,12 @@ class DepsDataProcessor:
         data_buf = []
 
         try:
+            
             sig_items = sig_str.split(',')
-            # print('sig_items', sig_items)
+            
 
             if len(sig_items) != 4:
-                # ignore invalid data string
+            #     # ignore invalid data string
                 return None
 
             # split the input string into
@@ -180,21 +182,15 @@ class DepsDataProcessor:
         ang = data_buf[1]
         trq = data_buf[2]
         cur = data_buf[3]
-        print('spd data', spd)
-        print('ang data',ang)
-        print('trq data',trq)
-        print('cur data',cur)
-        
 
-        
         if not is_valid_sensor_data_v2(spd, ang, trq,cur):
-            print('invalidate - SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, CUR:{:5.1f}'.format(spd, ang, trq, cur))
+            print('invalidate - SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f},CUR:{:5.1f}'.format(spd, ang, trq, cur))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
         self.ang_data_buf.append(ang)    # ANG
         self.trq_data_buf.append(trq)    # TRQ
-        self.cur_data_buf.append(cur)    # PWR
+        self.cur_data_buf.append(cur)    # CUR
     
 
         return data_buf

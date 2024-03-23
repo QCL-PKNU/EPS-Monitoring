@@ -23,6 +23,6 @@ from deps_main_window import DepsMainWindow
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = DepsMainWindow()
-    window.setWindowTitle("DEPCO EPS Evaluation v2.0")
+    window.setWindowTitle("EPS Evaluation v3.0")
     window.show()
     sys.exit(app.exec_())
