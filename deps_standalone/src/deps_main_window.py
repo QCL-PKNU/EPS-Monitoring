@@ -37,7 +37,7 @@ from pathlib import Path
 # DepsMainWindow class
 #######################################################################
 # Main window, Main window UI
-MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_main_window_v2.ui")
+MW_Ui, MW_Base = uic.loadUiType("../deps_standalone/res/deps_main_window_v3.ui")
 
 class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
@@ -60,22 +60,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         super().__init__()
         self.setupUi(self)
-        # Create a VideoCapture object
-        # self.cap = cv2.VideoCapture(0)
-        # set up the thermal camera to get the gray16 stream and raw data
-        # self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y','1','6',' '))
-        # self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+ 
 
-
-        # self.__update_frame()
-        
-        
-        
-        
-        #####################################################################
-        # Save Image 
-        
-        
         
         
         
@@ -101,7 +87,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.pb_rawdat_save.clicked.connect(self.slot_rawdat_save_clicked)
         self.pb_rawdat_disp.clicked.connect(self.slot_rawdat_disp_clicked)
         self.pb_current_control.clicked.connect(self.slot_current_control_clicked)
-       
+        self.pb_camera.clicked.connect(self.slot_camera_set)
+
 
         #####################################################################
         # read config file
@@ -109,7 +96,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
        
         self.__config_default = self.__config['DEFAULT']
         # read thermal image update duration
-        self.update_time: int = int(self.__config_default['thermaltime'])  *1000
+        self.update_time: int = int(self.__config_default['thermaltime']) 
         #read current update duration
         self.current_time_update = self.__config_default['currentupdate'] 
      
@@ -167,6 +154,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # internal states for controlling the worker thread
         self.eval_state: bool = True
         self.disp_state: bool = True
+        self.camera_state: bool = True
 
         # start the worker thread of this main window
         self.__worker_event = threading.Event()
@@ -190,8 +178,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.__conn = DepsCommFile()
 
         # filename
-        # err = self.__conn.open('../dat/test_11.txt')
-        err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
+        err = self.__conn.open('../deps_standalone/dat/test1.txt')
+        # err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -259,23 +247,23 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     ###################################################################
     # Slot functions
     ###################################################################
-    
-      ##
-    # This is a slot function to handle the signal
-    # when the save jpg is clicked.
-    #
-    # @param self this object
-    #
-    @pyqtSlot()
-    def slot_savejpg_clicked(self):
-        if self.eval_state:
-            self.eval_state = False
-            self.__conn.stop_eps_recv_thread()
-            self.pb_evaluate.setText('Continue')
-        else:
-            self.eval_state = True
-            self.__conn.start_eps_recv_thread()
-            self.pb_evaluate.setText('Pause')
+
+    #   ##
+    # # This is a slot function to handle the signal
+    # # when the save jpg is clicked.
+    # #
+    # # @param self this object
+    # #
+    # @pyqtSlot()
+    # def slot_savejpg_clicked(self):
+    #     if self.eval_state:
+    #         self.eval_state = False
+    #         self.__conn.stop_eps_recv_thread()
+    #         self.pb_evaluate.setText('Continue')
+    #     else:
+    #         self.eval_state = True
+    #         self.__conn.start_eps_recv_thread()
+    #         self.pb_evaluate.setText('Pause')
 
     ##
     # This is a slot function to handle the signal
@@ -425,6 +413,24 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
 
         return
+        
+    ##
+    # This is a slot function to handle the signal
+    # when the camera is clicked.
+    #
+    # @param self this object
+    #
+    @pyqtSlot()
+    def slot_camera_set(self):
+        if self.camera_state:
+            self.camera_state = False
+            print('>>>> camera setting clicked', self.camera_state)
+            
+            self.pb_camera.setText('On Camera')
+        else:
+            self.camera_state = True
+            self.pb_camera.setText('Off Camera')
+        return
     
 
 
@@ -499,15 +505,17 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             super().__init__(parent)
             self.__parent = parent
             self.__stopped = event
+
             self.timer = QTimer()
             self.timer.timeout.connect(self.__update_frame)
             update_interval = self.__parent.update_time
             self.timer.start(update_interval)
             # self.__update_frame()
-                    # Initialize the timer
+            # Initialize the timer
             self.timer1 = QTimer(self)
             self.timer1.timeout.connect(self.save_thermal_image)
-           
+        
+        
 
             # a buffer of lps points
             self.__lps_buffer = []
@@ -644,42 +652,43 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         def __update_frame(self):
                 # Capture a frame from the camera   
-                self.cap = cv2.VideoCapture(0)
+                if self.__parent.camera_state:
+                    self.cap = cv2.VideoCapture(0)
 
 
-                ret, frame = self.cap.read()
+                    ret, frame = self.cap.read()
 
-                cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
-                self.cap.release()
-               
-                
-        
-                if ret:
-                    # Read the temporaray image as grayscale
-                    gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg', cv2.IMREAD_GRAYSCALE)
-                    height, width= gray_frame_16bit.shape
-                    x_center = width // 2
-                    y_center = height // 2
-                    temperature = gray_frame_16bit[x_center,y_center]
-
-                    
-                    #Min and Max temperature of EPS system should be
-                    min_tem = -40
-                    max_tem = 85
-                    tem_range = max_tem-min_tem
-                    # pixel_values = gray_frame_16bit.astype(np.float32)
-                    pixel_values = temperature.astype(np.float32)
-
-                    temperatures = ((pixel_values/255)* tem_range ) + min_tem
-                    avgt = np.mean(temperatures)
+                    cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
+                    self.cap.release()
 
 
-                    # write temperature
-                    cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
-                    cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
 
-                    # Process the frame and update the QLabel
-                    self.process_and_update_label(frame)
+                    if ret:
+                        # Read the temporaray image as grayscale
+                        gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg', cv2.IMREAD_GRAYSCALE)
+                        height, width= gray_frame_16bit.shape
+                        x_center = width // 2
+                        y_center = height // 2
+                        temperature = gray_frame_16bit[x_center,y_center]
+
+
+                        #Min and Max temperature of EPS system should be
+                        min_tem = -40
+                        max_tem = 85
+                        tem_range = max_tem-min_tem
+                        # pixel_values = gray_frame_16bit.astype(np.float32)
+                        pixel_values = temperature.astype(np.float32)
+
+                        temperatures = ((pixel_values/255)* tem_range ) + min_tem
+                        avgt = np.mean(temperatures)
+
+
+                        # write temperature
+                        cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
+                        cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
+
+                        # Process the frame and update the QLabel
+                        self.process_and_update_label(frame)
                   
                 else:
                     print("Failed to capture frame from camera.")
@@ -692,40 +701,38 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         #
 
         def process_and_update_label(self, frame):
-        
-            # Convert the image from BGR to RGB
-            frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-            #rgb_image = frame
-            #print('dataaaaaaaaaaaaaa', rgb_image.data)
+            if frame is not None:
+                # Convert the image from BGR to RGB
+                frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+                #rgb_image = frame
+                pixmap = QPixmap.fromImage('../deps/res/nocamp.jpg')
 
-      
+                # Convert to QImage and then to QPixmap
+                height, width, channels = frame.shape
+                bytes_per_line = 3 * width
+                if self.__parent.camera_state:
+                    pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
+                # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+              
 
-            # Convert to QImage and then to QPixmap
-            height, width, channels = frame.shape
-            bytes_per_line = 3 * width
-            # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
-          
-            label_width = self.__parent.lb_screen_thermal.width()
-            label_height = self.__parent.lb_screen_thermal.height()
+                label_width = self.__parent.lb_screen_thermal.width()
+                label_height = self.__parent.lb_screen_thermal.height()
 
-            # Resize the pixmap to fit the label
-            scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
+                # Resize the pixmap to fit the label
+                scaled_pixmap = pixmap.scaled(label_width, label_height,  Qt.KeepAspectRatioByExpanding)
 
-            
+                # Set the pixmap on the label
+                self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap) 
+                if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
+                    self.save_thermal_image()
 
-           
-      
-            # Set the pixmap on the label
-            self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap) 
-            if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
-                self.save_thermal_image()
+                # pixmap =None
+                
+                
 
-            pixmap =None
 
-        
-        
+
         def save_thermal_image(self):
             pixMap = self.__parent.lb_screen_thermal.pixmap()
             # Specify the file path and format
