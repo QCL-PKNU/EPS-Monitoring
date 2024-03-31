@@ -182,13 +182,13 @@ class DepsDataProcessor:
 
         
         if not is_valid_sensor_data_v2(spd, ang, trq,cur):
-            self.print('invalidate - SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, CUR:{:5.1f}'.format(spd, ang, trq, cur))
+            print('invalidate - SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, CUR:{:5.1f}'.format(spd, ang, trq, cur))
             return None
 
         self.spd_data_buf.append(spd)    # SPD
         self.ang_data_buf.append(ang)    # ANG
         self.trq_data_buf.append(trq)    # TRQ
-        self.cur_data_buf.append(cur)    # PWR
+        self.cur_data_buf.append(cur)    # CUR
     
 
         return data_buf

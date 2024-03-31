@@ -43,6 +43,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     CONFIG_FILE_NAME: str = 'config.ini'
     PREFIX_SAVE_FILE: str = '../deps_standalone/dat/save_'
     PSTFIX_SAVE_FILE: str = '.txt'
+    #save the thermal image path
     THML_DIRECTORY: str ='../deps_standalone/dat/thermal_image'
     #save the temporary Pixmap
     TMP_DIRECTORY : str = '../deps_standalone/dat/tmp'
@@ -60,14 +61,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         super().__init__()
         self.setupUi(self)
- 
-
-        
-        
-        
-    
-        
-        
 
         #####################################################################
         # plot widget initialization
@@ -160,6 +153,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.__worker_event = threading.Event()
         self.__worker_thread = self.WorkerThread(self, self.__worker_event)
         self.__worker_thread.start()
+        
+        # check first load
+        self.first_load = 1
 
         #####################################################################
         # initialize the uart communication
@@ -178,8 +174,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.__conn = DepsCommFile()
 
         # filename
-        err = self.__conn.open('../deps_standalone/dat/test1.txt')
-        # err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
+        #err = self.__conn.open('../deps_standalone/dat/test1.txt')
+        err = self.__conn.open(f'{self.DATA_FILE_DIR}/dpeco_data_current_measure_added_240305.txt')
         if err != DepsError.SUCCESS:
             self.print_log("EPS connection is not opened: " + err.name)
             return
@@ -238,7 +234,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 break
 
             # transfer the input signal into the data processor
-            self.processor.enqueue_sensor_signal(line_str)
+            self.processor.enqueue_sensor_signal_v2(line_str)
 
         # close the save file
         save_fp.close()
@@ -331,17 +327,14 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
         # YOUNGSUN
         # print('received: ' + rawdat)
-        # print('received: ' + datbuf)
+
         
         if datbuf is not None:
             spd = datbuf[0]
             ang = datbuf[1]
             trq = datbuf[2]
-            cur= datbuf[3]
-    
-        
-            #self.save_fp.write('SPD:{:5.3f},ANG:{:5.3f},TRQ:{:5.3f}\n'.format(spd, ang, trq))
-            ##Current Measurement
+            cur = datbuf[3]
+
             self.save_fp.write('SPD:{:5.1f},ANG:{:5.1f},TRQ:{:5.1f}, ,CUR:{:5.1f}\n'.format(spd, ang, trq,cur))
 
 
@@ -396,7 +389,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.update_timer = QTimer(self)
             self.update_timer.timeout.connect(self.update_current_consumption)
             self.update_current_consumption()
-            update_interval = self.current_time_update * 1000  # Convert to milliseconds
+            update_interval = self.current_time_update 
             self.update_timer.start(update_interval)
 
 
@@ -643,7 +636,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
 
     
-        
         ##
         # This is a  method of obtaining the thermal image holder
         #
@@ -685,11 +677,19 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
                         # write temperature
                         cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
-                        cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
-
+                        # cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
+                        if self.__parent.first_load ==1:
+                            cv2.imwrite(f'{self.__parent.THML_DIRECTORY}/initial.jpg',frame)
+                        # else:
+                        #     cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
                         # Process the frame and update the QLabel
                         self.process_and_update_label(frame)
-                  
+                        if self.__parent.first_load ==1:
+                            self.__parent.camera_state = False
+                            self.__parent.pb_camera.setText('On Camera')
+                            self.__parent.first_load +=1
+                    
+                        
                 else:
                     print("Failed to capture frame from camera.")
         
@@ -706,13 +706,14 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
                 #rgb_image = frame
-                pixmap = QPixmap.fromImage('../deps/res/nocamp.jpg')
+                pixmap = QPixmap(f'{self.__parent.THML_DIRECTORY}/initial.jpg')
 
                 # Convert to QImage and then to QPixmap
                 height, width, channels = frame.shape
                 bytes_per_line = 3 * width
-                if self.__parent.camera_state:
-                    pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
+                if self.__parent.first_load !=1:
+                    pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg')
+                    #pixmap = QPixmap(f'{self.__parent.THML_DIRECTORY}/initial.jpg')
                 # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
               
 
@@ -727,7 +728,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 if  self.__parent.cb_save_one.isChecked() |  self.__parent.cb_save_shot.isChecked():
                     self.save_thermal_image()
 
-                # pixmap =None
+                
                 
                 
 
