@@ -148,6 +148,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.eval_state: bool = True
         self.disp_state: bool = True
         self.camera_state: bool = True
+        self.load_counter = 1
 
         # start the worker thread of this main window
         self.__worker_event = threading.Event()

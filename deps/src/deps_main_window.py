@@ -81,6 +81,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.pb_rawdat_disp.clicked.connect(self.slot_rawdat_disp_clicked)
         self.pb_current_control.clicked.connect(self.slot_current_control_clicked)
         self.pb_camera.clicked.connect(self.slot_camera_set)
+    
        
 
         #####################################################################
@@ -91,7 +92,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         # read thermal image update duration
         self.update_time: int = int(self.__config_default['thermaltime'])  *1000
         #read current update duration
-        self.current_time_update = self.__config_default['currentupdate'] 
+        self.current_time_update = int(self.__config_default['currentupdate'])*1000 
      
 
         #####################################################################
@@ -148,6 +149,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         self.eval_state: bool = True
         self.disp_state: bool = True
         self.camera_state: bool = True
+        self.current_state:bool=True
+        self.load_count =1
 
         # start the worker thread of this main window
         self.__worker_event = threading.Event()
@@ -390,8 +393,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     def slot_current_control_clicked(self):
         
        
-        if self.disp_state:
-            self.disp_state = False
+        if self.current_state:
+            self.current_state = False
             self.pb_current_control.setText('Reset')
             self.update_timer = QTimer(self)
             self.update_timer.timeout.connect(self.update_current_consumption)
@@ -403,7 +406,7 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
   
 
         else:
-            self.disp_state = True
+            self.current_state = True
             self.pb_current_control.setText('Start')
             self.lb_current_mean.setText(f'Mean = **.** mA')
             self.lb_current_min.setText(f'Min = **.** mA')
@@ -634,23 +637,26 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         def __update_frame(self):
                 # Capture a frame from the camera   
                 if self.__parent.camera_state:
-                    self.cap = cv2.VideoCapture(0)
+                    self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L2)
 
 
                     ret, frame = self.cap.read()
 
-                    cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
+                    #cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
                     self.cap.release()
 
 
 
                     if ret:
                         # Read the temporaray image as grayscale
-                        gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg', cv2.IMREAD_GRAYSCALE)
-                        height, width= gray_frame_16bit.shape
+                        #gray_frame_16bit = cv2.imread(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg', cv2.IMREAD_GRAYSCALE)
+                        
+                        #height, width= gray_frame_16bit.shape
+                        height, width, _ = frame.shape
                         x_center = width // 2
                         y_center = height // 2
-                        temperature = gray_frame_16bit[x_center,y_center]
+                        temperature = frame[x_center,y_center]
+                        #temperature = gray_frame_16bit[x_center,y_center]
 
 
                         #Min and Max temperature of EPS system should be
@@ -667,9 +673,15 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                         # write temperature
                         cv2.putText(frame, "{0:.1f} C".format(avgt),(x_center+40,y_center+20), cv2.FONT_HERSHEY_PLAIN,0.5,(0,0,0),1)
                         cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
+                        cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg',frame)
 
                         # Process the frame and update the QLabel
                         self.process_and_update_label(frame)
+                        if self.__parent.load_count ==1:
+                            self.__parent.camera_state = False
+                            self.__parent.pb_camera.setText('On Camera')
+                            self.__parent.load_count +=1
+                        cv2.destroyAllWindows()
                   
                 else:
                     print("Failed to capture frame from camera.")
@@ -686,7 +698,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             frame  = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
             #rgb_image = frame
-            #print('dataaaaaaaaaaaaaa', rgb_image.data)
 
       
 
