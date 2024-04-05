@@ -23,15 +23,14 @@ import logging
 #######################################################################
 
 class DepsCommConn(QThread):
-    
+ 
     ##
     # Constructor of DepsCommConn class
     #
     def __init__(self):
 
         super().__init__()
-        GPIO.setwarnings(False)
-        
+        GPIO.setwarnings(False)  
         #uart handle
         self.__uart = None
 
@@ -121,14 +120,10 @@ class DepsCommConn(QThread):
                 continue
             except Exception as e:
                 logging.error(f"Unexpected error: {e}")
-
             # just for debugging
             #print(">> Read Byte: " + str(read_bytes[0]) + "\n")
-
             if self.__eps_recv_flag and len(read_bytes) > 0:
                 self.sig_eps_recv_bytes.emit(bytearray(read_bytes))
-               
-
             # wait for 0.001 sec
             self.msleep(1)
         return

@@ -394,7 +394,6 @@ def calculate_linearity_points(combined_dat: np.array, thv: int = -60):
             interval = 0
             ang_sum = 0
             trq_sum = 0
-
     return lps
 
 ##
@@ -423,7 +422,7 @@ def calculate_linear_regression(x_pts: list, y_pts: list):
     # slope, intercept (y = b1 * x + b0)
     b1: float = s_xy / s_xx
     b0: float = y_mean - b1 * x_mean
-
+    
     return b1, b0
 
 ##
@@ -434,13 +433,12 @@ def calculate_linear_regression(x_pts: list, y_pts: list):
 # @return the result of linear regression (slope, intercept)
 #
 def calculate_linear_regression_v2(x_pts: list, y_pts: list):
-
     # linear regression
     b1, b0 = calculate_linear_regression(x_pts, y_pts)
-
+    
     # b1 calibration
     b1 = (-100 + random.randrange(1, 15)) / 100.0
-
+    
     return b1, b0
 
 ##
