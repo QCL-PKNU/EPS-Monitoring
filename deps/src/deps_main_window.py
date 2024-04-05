@@ -332,7 +332,8 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             # Format the date and time as a string in the format YYYYMMDD_HHMMSS
             dateString = now.strftime("%Y%m%d_%H%M%S")
             filePath = f"{self.THML_DIRECTORY}/{dateString}"
-            format = "JPG"  # Format could be JPG, PNG, etc.
+            # Format could be JPG, PNG, etc.
+            format = "JPG"
             # Save the QPixmap
             self.lbn.save(filePath, format)
             print(f"Image saved as {filePath}")
@@ -562,14 +563,10 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             # Capture a frame from the camera
             if self.__parent.camera_state:
                 self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L2)
-
                 ret, frame = self.cap.read()
-
-                # cv2.imwrite(f'{self.__parent.TMP_DIRECTORY}/tmp.jpg',frame)
                 self.cap.release()
 
                 if ret:
-
                     height, width, _ = frame.shape
                     x_center = width // 2
                     y_center = height // 2
@@ -608,18 +605,16 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         #
 
         def process_and_update_label(self, frame):
-
             # Convert the image from BGR to RGB
             frame = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # rgb_image = frame
 
             # Convert to QImage and then to QPixmap
             height, width, channels = frame.shape
             bytes_per_line = 3 * width
+
             # q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap(f'{self.__parent.TMP_DIRECTORY}/tmp_frame.jpg')
-
             label_width = self.__parent.lb_screen_thermal.width()
             label_height = self.__parent.lb_screen_thermal.height()
 
@@ -631,7 +626,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.__parent.lb_screen_thermal.setPixmap(scaled_pixmap)
             if self.__parent.cb_save_one.isChecked() | self.__parent.cb_save_shot.isChecked():
                 self.save_thermal_image()
-
             pixmap = None
 
         def save_thermal_image(self):
@@ -642,18 +636,14 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             dateString = now.strftime("%Y%m%d_%H%M%S")
             filePath = f"{self.__parent.THML_DIRECTORY}/{dateString}.JPG"
             if self.__parent.cb_save_one.isChecked():
-
                 # Save the QPixmap
                 pixMap.save(filePath)
                 self.__parent.cb_save_one.setChecked(False)
-
             elif self.__parent.cb_save_shot.isChecked():
                 # Store pixmap for saving in the timed method, ensure it's accessible there
                 pixMap.save(filePath)
-
                 save_interval = self.__parent.update_time
                 self.timer.start(save_interval)  # Start or restart the timer
-
             else:
                 print("Checkbox is not checked. Image not saved.")
 
