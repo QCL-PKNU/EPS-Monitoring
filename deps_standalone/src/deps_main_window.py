@@ -342,9 +342,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
 
     def update_current_consumption(self):
         min, max, mean = self.processor.calculate_currrent_consumption()
-        self.lb_current_mean.setText('Mean: {:5.1f} mA'.format(mean))
-        self.lb_current_min.setText('Min: {:5.1f} mA'.format(min))
-        self.lb_current_max.setText('Max: {:5.1f} mA'.format(max))
+        self.lb_current_mean.setText('Mean: {:5.1f} A'.format(mean))
+        self.lb_current_min.setText('Min: {:5.1f} A'.format(min))
+        self.lb_current_max.setText('Max: {:5.1f} A'.format(max))
 
     ##
     # This is a function to save image
@@ -388,9 +388,9 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
         else:
             self.disp_state = True
             self.pb_current_control.setText('Start')
-            self.lb_current_mean.setText(f'Mean = **.** mA')
-            self.lb_current_min.setText(f'Min = **.** mA')
-            self.lb_current_max.setText(f'Max = **.** mA')
+            self.lb_current_mean.setText(f'Mean = **.* A')
+            self.lb_current_min.setText(f'Min = **.* A')
+            self.lb_current_max.setText(f'Max = **.* A')
             # min,max,mean =self.processor.calculate_currrent_consumption()
             # self.lb_current_mean_2.setText('Mean: {:5.3f} mA'.format(mean))
 

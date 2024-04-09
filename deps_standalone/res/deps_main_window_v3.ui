@@ -1375,7 +1375,7 @@
          <number>-2</number>
         </property>
         <property name="text">
-         <string>Min = **. *mA</string>
+         <string>Min = **. *A</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -1410,7 +1410,7 @@
          <number>-2</number>
         </property>
         <property name="text">
-         <string>Max = **. *mA</string>
+         <string>Max = **. *A</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -1445,7 +1445,7 @@
          <number>0</number>
         </property>
         <property name="text">
-         <string>Mean = **. *mA</string>
+         <string>Mean = **. *A</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
