@@ -294,7 +294,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     #
     @pyqtSlot()
     def slot_esp_rawdat_received(self, read_bytes: QByteArray):
-
         rawdat = read_bytes.decode('ISO-8859-1').rstrip()
         datbuf = self.processor.enqueue_sensor_signal_v2(rawdat)
 
@@ -383,7 +382,6 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.lw_log_pane.scrollToBottom()
             # just for debugging
             print(_msg + '\n')
-
         # create new thread to execute the given target function
         threading.Thread(target=__print_log_thread, args=(msg,)).start()
 
@@ -396,16 +394,12 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
     def dump_file(self, path):
         # open a file of the given path
         fd = open(path, 'w')
-
         # print out all the list items into the file of the given path
         log_pane = self.lw_log_pane
-
         for i in range(0, log_pane.count()):
             fd.write(log_pane.item(i).text() + "\n")
-
         # close the file
         fd.close()
-
     #############################################################
     # WorkerThread class
     #############################################################
@@ -430,12 +424,10 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
             self.timer.start(update_interval)
             self.timer1 = QTimer(self)
             self.timer1.timeout.connect(self.save_thermal_image)
-
             # a buffer of lps points
             self.__lps_buffer = []
             for i in range(3):
                 self.__lps_buffer.append([])
-
             # signal-slot connection
             self.sig_update_graphs.connect(self.slot_update_graphs)
 
@@ -502,31 +494,56 @@ class DepsMainWindow(MW_Base, MW_Ui, QThread):
                 self.__parent.print_log(
                     'There are no linearity points to be plot.')
                 return
-
+            # Initialize previous_point_counts as three separate lists
+            previous_point_counts = [[] for _ in range(len(plot_widgets))]
             try:
+                # Dictionary to store previous and current counts for each widget
+                previous_counts = {}
+                current_counts = {}
+                previous_point_counts = [
+                    len(self.__lps_buffer[i]) for i in range(len(plot_widgets))]
                 # speed levels (0~10, 10~30, 30~60 km/h)
                 for i in range(len(plot_widgets)):
                     # temporary lps list
                     points: list = self.__lps_buffer[i].copy()
+                    # points: list = previous_point_counts[i].copy()
                     points.extend(lps_list[i])
+                    current_point_count = len(points)
+                    previous_point_count = len(self.__lps_buffer[i])
+                    # Save the counts based on widget number
+                    previous_counts[i] = previous_point_count
+                    current_counts[i] = current_point_count
+                    #print(f'Widget index: {i}')
+                    #print(f'Current point count: {current_point_count}')
+                    #print(f'Previous point count: {previous_point_counts[i]}')
+                    # Check if the number of points has chaged
+                    if current_point_count != previous_point_counts[i] and points != self.__lps_buffer[i]:
 
-                    # a list of linearity points
-                    x, y = zip(*points)
+                        #print(f'Number of points has changed for widget {i}')
 
-                    # linear regression (slope, intercept)
-                    b1, b0 = calculate_linear_regression(x, y)
+                        # Update self.__lps_buffer with the current points
+                        self.__lps_buffer[i] = points.copy()
 
-                    # calculate predicted y with the regression results
-                    y_pred = b1 * np.array(x) + b0
+                        # Update the previous point count
+                        previous_point_counts[i] = current_point_count
 
-                    # plot the points and regression line
-                    plot_widgets[i].clear()
-                    plot_widgets[i].plot(x, y, pen=None, symbol='o')
-                    plot_widgets[i].plot(x, y_pred, pen='r')
+                        # a list of linearity points
+                        x, y = zip(*points)
 
-                    # plot the linearity label
-                    b1, b0 = calculate_linear_regression_v2(x, y)
-                    plot_labels[i].setText('Linearity: {:5.3f}'.format(b1))
+                        # linear regression (slope, intercept)
+                        b1, b0 = calculate_linear_regression(x, y)
+
+                        # calculate predicted y with the regression results
+                        y_pred = b1 * np.array(x) + b0
+
+                        # plot the points and regression line
+                        plot_widgets[i].clear()
+                        plot_widgets[i].plot(x, y, pen=None, symbol='o')
+                        plot_widgets[i].plot(x, y_pred, pen='r')
+
+                        # plot the linearity label
+                        b1, b0 = calculate_linear_regression_v2(x, y)
+                        plot_labels[i].setText('Linearity: {:5.3f}'.format(b1))
 
             except ValueError as e:
                 print('__update_linearity_graph error: {}'.format(str(e)))
